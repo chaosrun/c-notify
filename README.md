@@ -5,6 +5,8 @@ It plays a random audio file from `~/.c-notify/sounds/<tool>/<event>/` when hook
 
 Audio files are user-provided. The repository does not bundle sound assets.
 
+简体中文文档: [README_ZH.md](README_ZH.md)
+
 ## Features
 
 - Tool-specific event namespaces (`codex` and `claude`) with independent event sets
