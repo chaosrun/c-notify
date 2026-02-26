@@ -235,25 +235,46 @@ def make_hook(async_mode: bool):
         hook["async"] = True
     return hook
 
+def is_c_notify_command(command: str) -> bool:
+    normalized = " ".join(str(command).lower().split())
+    return "c-notify" in normalized and "hook --tool claude" in normalized
+
 def is_c_notify_entry(entry):
     if not isinstance(entry, dict):
         return False
+    direct_command = entry.get("command")
+    if isinstance(direct_command, str) and is_c_notify_command(direct_command):
+        return True
     subhooks = entry.get("hooks", [])
     if not isinstance(subhooks, list):
         return False
     for h in subhooks:
         if not isinstance(h, dict):
             continue
-        c = str(h.get("command", ""))
-        if "c-notify.py hook --tool claude" in c:
+        if is_c_notify_command(str(h.get("command", ""))):
             return True
     return False
+
+managed_events = {name for name, _, _ in events}
+
+# Remove stale c-notify entries globally so dropped events (for example SubagentStop)
+# no longer keep spawning no-op hook processes.
+for event_name in list(hooks.keys()):
+    event_hooks = hooks.get(event_name, [])
+    if not isinstance(event_hooks, list):
+        continue
+    cleaned = [e for e in event_hooks if not is_c_notify_entry(e)]
+    if event_name in managed_events:
+        hooks[event_name] = cleaned
+    elif cleaned:
+        hooks[event_name] = cleaned
+    else:
+        del hooks[event_name]
 
 for event_name, matcher, async_mode in events:
     event_hooks = hooks.get(event_name, [])
     if not isinstance(event_hooks, list):
         event_hooks = []
-    event_hooks = [e for e in event_hooks if not is_c_notify_entry(e)]
     event_hooks.append(
         {
             "matcher": matcher,
