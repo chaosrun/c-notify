@@ -37,6 +37,8 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "prevent_overlap": False,
     "cooldown_seconds": 0.0,
     "cooldown_by_event": {},
+    "hook_strict_exit": False,
+    "codex_infer_permission_from_text": False,
     "codex_keywords": {
         "context-compact": [
             "context compact",
@@ -95,8 +97,8 @@ EVENT_DOCS: dict[str, dict[str, dict[str, str]]] = {
             "zh": "普通 agent-turn-complete 结果的默认完成类别。",
         },
         "permission-needed": {
-            "en": "Permission/approval required category (mapped from approval-requested or inferred from completion text).",
-            "zh": "需要权限/审批类别（由 approval-requested 映射或从完成文本推断）。",
+            "en": "Permission/approval category. Codex notify currently does not emit approval-requested; this category is for optional text inference and future/manual compatibility.",
+            "zh": "需要权限/审批类别。Codex notify 目前不会发出 approval-requested；此类别用于可选文本推断以及未来/手动兼容。",
         },
         "task-error": {
             "en": "Error category inferred from completion text.",
@@ -513,7 +515,13 @@ def _infer_codex_event_from_message(message: str, config: dict[str, Any]) -> str
     if not isinstance(keywords, dict):
         return "task-complete"
 
-    for key in ("context-compact", "resource-limit", "permission-needed", "task-error"):
+    infer_permission = bool(config.get("codex_infer_permission_from_text", False))
+    infer_order = ["context-compact", "resource-limit"]
+    if infer_permission:
+        infer_order.append("permission-needed")
+    infer_order.append("task-error")
+
+    for key in infer_order:
         terms = keywords.get(key, [])
         if not isinstance(terms, list):
             continue
@@ -543,12 +551,9 @@ def resolve_codex_events(raw_payload_text: str, event_override: str, config: dic
     payload_is_turn_complete = isinstance(payload, dict) and payload.get("type") == "agent-turn-complete"
     candidates: list[str] = []
 
-    if normalized == "agent-turn-complete":
-        inferred = _infer_codex_event_from_message(message, config)
-        candidates.extend(_with_compact_fallback(inferred))
-    elif normalized in CODEX_CATEGORIES:
+    if normalized in CODEX_CATEGORIES:
         candidates.extend(_with_compact_fallback(normalized))
-    elif payload_is_turn_complete:
+    elif normalized == "agent-turn-complete" or payload_is_turn_complete:
         inferred = _infer_codex_event_from_message(message, config)
         candidates.extend(_with_compact_fallback(inferred))
     elif not normalized:
@@ -667,6 +672,8 @@ def cmd_status() -> int:
     print(f"config: {CONFIG_PATH}")
     print(f"state: {STATE_PATH}")
     print(f"sound_root: {_sound_root(config)}")
+    print(f"hook_strict_exit: {bool(config.get('hook_strict_exit', False))}")
+    print(f"codex_infer_permission_from_text: {bool(config.get('codex_infer_permission_from_text', False))}")
     print("platform_support: macOS/Linux")
     return 0
 
@@ -705,6 +712,7 @@ def cmd_play(tool: str, event_name: str) -> int:
 
 def cmd_hook(tool: str, event_override: str, payload_arg: str | None, extra: list[str], debug: bool) -> int:
     config = load_config()
+    strict_exit = bool(config.get("hook_strict_exit", False))
     if not bool(config.get("enabled", True)):
         return 0
 
@@ -719,6 +727,16 @@ def cmd_hook(tool: str, event_override: str, payload_arg: str | None, extra: lis
         sound_path, used_event = try_play_event(tool, candidates, config, state)
         save_state(state)
 
+    if used_event:
+        outcome = "played"
+        exit_code = 0
+    elif candidates:
+        outcome = "no-sound"
+        exit_code = 3 if strict_exit else 0
+    else:
+        outcome = "unmapped"
+        exit_code = 2 if strict_exit else 0
+
     if debug:
         print(json.dumps(
             {
@@ -727,11 +745,14 @@ def cmd_hook(tool: str, event_override: str, payload_arg: str | None, extra: lis
                 "candidates": candidates,
                 "played_event": used_event,
                 "played_file": str(sound_path) if sound_path else "",
+                "outcome": outcome,
+                "strict_exit": strict_exit,
+                "exit_code": exit_code,
             },
             indent=2,
         ))
 
-    return 0
+    return exit_code
 
 
 def build_parser() -> argparse.ArgumentParser:

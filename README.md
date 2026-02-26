@@ -14,7 +14,7 @@ Audio files are user-provided. The repository does not bundle sound assets.
 - Global portable switch: `on / off / toggle / status`
 - Linux/macOS playback backend support
 - Event folder bootstrap with bilingual `README.md` per folder
-- Codex inferred event routing from `agent-turn-complete` message text
+- Optional Codex keyword inference from `agent-turn-complete` message text
 
 ## Quick Start
 
@@ -81,8 +81,10 @@ notify = ["python3", "/ABSOLUTE/PATH/TO/c-notify/c-notify.py", "hook", "--tool",
 
 Notes:
 
-- Codex primarily sends `agent-turn-complete` through `notify`.
-- `approval-requested` (if present in your pipeline) maps to `permission-needed`.
+- Codex `notify` currently sends `agent-turn-complete` payloads in normal operation.
+- `approval-requested` is kept as a future/manual compatibility alias and maps to `permission-needed` if such payloads are provided.
+- For real-time approval cues today, use Codex TUI notifications (`[tui] notifications = ["approval-requested"]`) rather than relying on `notify`.
+- `codex_infer_permission_from_text` defaults to `false` to avoid false positives.
 
 ### Claude Code (`~/.claude/settings.json`)
 
@@ -167,7 +169,9 @@ Important keys:
 - `extensions`: allowed audio extensions
 - `prevent_overlap`: skip new playback while prior process is alive
 - `cooldown_seconds` and `cooldown_by_event`: optional throttling
-- `codex_keywords`: keyword inference for `context-compact`, `permission-needed`, `task-error`, `resource-limit`
+- `hook_strict_exit`: default `false`; when `true`, hook exits non-zero for unmapped/no-sound outcomes
+- `codex_infer_permission_from_text`: default `false`; optional permission inference from completion text
+- `codex_keywords`: keyword inference for `context-compact`, `task-error`, `resource-limit`, and optional `permission-needed`
 
 ## Platform Support
 
