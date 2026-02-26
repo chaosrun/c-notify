@@ -64,7 +64,6 @@ Core categories (Claude):
 - `~/.c-notify/sounds/claude/session-start/`
 - `~/.c-notify/sounds/claude/session-end/` (optional)
 - `~/.c-notify/sounds/claude/subagent-start/` (optional)
-- `~/.c-notify/sounds/claude/subagent-stop/` (optional)
 - `~/.c-notify/sounds/claude/task-acknowledge/`
 - `~/.c-notify/sounds/claude/task-complete/`
 - `~/.c-notify/sounds/claude/permission-needed/`
@@ -99,9 +98,6 @@ Use one command entry for all events:
       { "matcher": "", "hooks": [ { "type": "command", "command": "python3 /ABSOLUTE/PATH/TO/c-notify/c-notify.py hook --tool claude", "timeout": 10, "async": true } ] }
     ],
     "SubagentStart": [
-      { "matcher": "", "hooks": [ { "type": "command", "command": "python3 /ABSOLUTE/PATH/TO/c-notify/c-notify.py hook --tool claude", "timeout": 10, "async": true } ] }
-    ],
-    "SubagentStop": [
       { "matcher": "", "hooks": [ { "type": "command", "command": "python3 /ABSOLUTE/PATH/TO/c-notify/c-notify.py hook --tool claude", "timeout": 10, "async": true } ] }
     ],
     "UserPromptSubmit": [

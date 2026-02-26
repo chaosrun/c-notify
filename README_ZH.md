@@ -62,7 +62,6 @@ chmod +x install.sh
 - `~/.c-notify/sounds/claude/session-start/`
 - `~/.c-notify/sounds/claude/session-end/`（可选）
 - `~/.c-notify/sounds/claude/subagent-start/`（可选）
-- `~/.c-notify/sounds/claude/subagent-stop/`（可选）
 - `~/.c-notify/sounds/claude/task-acknowledge/`
 - `~/.c-notify/sounds/claude/task-complete/`
 - `~/.c-notify/sounds/claude/permission-needed/`
@@ -97,9 +96,6 @@ notify = ["python3", "/ABSOLUTE/PATH/TO/c-notify/c-notify.py", "hook", "--tool",
       { "matcher": "", "hooks": [ { "type": "command", "command": "python3 /ABSOLUTE/PATH/TO/c-notify/c-notify.py hook --tool claude", "timeout": 10, "async": true } ] }
     ],
     "SubagentStart": [
-      { "matcher": "", "hooks": [ { "type": "command", "command": "python3 /ABSOLUTE/PATH/TO/c-notify/c-notify.py hook --tool claude", "timeout": 10, "async": true } ] }
-    ],
-    "SubagentStop": [
       { "matcher": "", "hooks": [ { "type": "command", "command": "python3 /ABSOLUTE/PATH/TO/c-notify/c-notify.py hook --tool claude", "timeout": 10, "async": true } ] }
     ],
     "UserPromptSubmit": [

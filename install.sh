@@ -217,7 +217,6 @@ events = [
     ("SessionStart", "", True),
     ("SessionEnd", "", True),
     ("SubagentStart", "", True),
-    ("SubagentStop", "", True),
     ("UserPromptSubmit", "", True),
     ("Stop", "", True),
     ("Notification", "", True),

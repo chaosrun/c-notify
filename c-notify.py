@@ -124,10 +124,6 @@ EVENT_DOCS: dict[str, dict[str, dict[str, str]]] = {
             "en": "Mapped from SubagentStart.",
             "zh": "映射自 SubagentStart。",
         },
-        "subagent-stop": {
-            "en": "Mapped from SubagentStop.",
-            "zh": "映射自 SubagentStop。",
-        },
         "task-acknowledge": {
             "en": "Mapped from UserPromptSubmit.",
             "zh": "映射自 UserPromptSubmit。",
@@ -186,7 +182,6 @@ CLAUDE_EVENT_TO_CATEGORY = {
     "session-start": "session-start",
     "session-end": "session-end",
     "subagent-start": "subagent-start",
-    "subagent-stop": "subagent-stop",
     "user-prompt-submit": "task-acknowledge",
     "stop": "task-complete",
     "permission-request": "permission-needed",
@@ -571,7 +566,6 @@ def _normalize_claude_event(raw_event: str) -> str:
         "sessionstart": "session-start",
         "sessionend": "session-end",
         "subagentstart": "subagent-start",
-        "subagentstop": "subagent-stop",
         "userpromptsubmit": "user-prompt-submit",
         "stop": "stop",
         "permissionrequest": "permission-request",
