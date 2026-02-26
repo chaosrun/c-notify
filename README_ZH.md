@@ -48,12 +48,27 @@ chmod +x install.sh
 ./install.sh --bin-dir=/custom/bin
 ```
 
-然后把你的音频文件放到类似目录：
+核心类别（Codex）：
 
 - `~/.c-notify/sounds/codex/task-complete/`
 - `~/.c-notify/sounds/codex/permission-needed/`
-- `~/.c-notify/sounds/claude/stop/`
-- `~/.c-notify/sounds/claude/permission-request/`
+- `~/.c-notify/sounds/codex/task-error/`
+- `~/.c-notify/sounds/codex/context-compact/`
+- `~/.c-notify/sounds/codex/resource-limit/`
+- `~/.c-notify/sounds/codex/session-start/`（可选/手动触发）
+
+核心类别（Claude）：
+
+- `~/.c-notify/sounds/claude/session-start/`
+- `~/.c-notify/sounds/claude/session-end/`（可选）
+- `~/.c-notify/sounds/claude/subagent-start/`（可选）
+- `~/.c-notify/sounds/claude/subagent-stop/`（可选）
+- `~/.c-notify/sounds/claude/task-acknowledge/`
+- `~/.c-notify/sounds/claude/task-complete/`
+- `~/.c-notify/sounds/claude/permission-needed/`
+- `~/.c-notify/sounds/claude/task-error/`
+- `~/.c-notify/sounds/claude/context-compact/`
+- `~/.c-notify/sounds/claude/resource-limit/`
 
 ## Hook 配置
 
@@ -66,7 +81,7 @@ notify = ["python3", "/ABSOLUTE/PATH/TO/c-notify/c-notify.py", "hook", "--tool",
 说明：
 
 - Codex 目前主要通过 `notify` 发送 `agent-turn-complete`。
-- 若你配置了 TUI notifications，链路中可用到 `approval-requested` 事件。
+- 若你的链路存在 `approval-requested`，会映射到 `permission-needed`。
 
 ### Claude Code（`~/.claude/settings.json`）
 
@@ -82,6 +97,9 @@ notify = ["python3", "/ABSOLUTE/PATH/TO/c-notify/c-notify.py", "hook", "--tool",
       { "matcher": "", "hooks": [ { "type": "command", "command": "python3 /ABSOLUTE/PATH/TO/c-notify/c-notify.py hook --tool claude", "timeout": 10, "async": true } ] }
     ],
     "SubagentStart": [
+      { "matcher": "", "hooks": [ { "type": "command", "command": "python3 /ABSOLUTE/PATH/TO/c-notify/c-notify.py hook --tool claude", "timeout": 10, "async": true } ] }
+    ],
+    "SubagentStop": [
       { "matcher": "", "hooks": [ { "type": "command", "command": "python3 /ABSOLUTE/PATH/TO/c-notify/c-notify.py hook --tool claude", "timeout": 10, "async": true } ] }
     ],
     "UserPromptSubmit": [
@@ -116,8 +134,6 @@ notify = ["python3", "/ABSOLUTE/PATH/TO/c-notify/c-notify.py", "hook", "--tool",
 ./c-notify events --tool claude
 ```
 
-脚本同时支持未知/自定义事件（按 slug 目录名匹配）。
-
 ## 常用命令
 
 ```bash
@@ -129,7 +145,7 @@ notify = ["python3", "/ABSOLUTE/PATH/TO/c-notify/c-notify.py", "hook", "--tool",
 ./c-notify toggle
 ./c-notify status
 ./c-notify events --tool claude
-./c-notify play --tool claude --event stop
+./c-notify play --tool claude --event task-complete
 ./c-notify hook --tool codex --debug
 ./c-notify hook --tool claude --debug
 ```
@@ -153,7 +169,7 @@ notify = ["python3", "/ABSOLUTE/PATH/TO/c-notify/c-notify.py", "hook", "--tool",
 - `extensions`：允许的音频扩展名
 - `prevent_overlap`：前一个音频进程未结束时是否跳过新播放
 - `cooldown_seconds` / `cooldown_by_event`：节流设置
-- `codex_keywords`：Codex 文本关键词推断规则
+- `codex_keywords`：Codex 文本关键词推断规则（`context-compact`、`permission-needed`、`task-error`、`resource-limit`）
 
 ## 平台支持
 

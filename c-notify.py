@@ -38,6 +38,14 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "cooldown_seconds": 0.0,
     "cooldown_by_event": {},
     "codex_keywords": {
+        "context-compact": [
+            "context compact",
+            "compacting context",
+            "compacting conversation",
+            "context window is full",
+            "precompact",
+            "context compression",
+        ],
         "permission-needed": [
             "needs your approval",
             "need your approval",
@@ -64,8 +72,8 @@ DEFAULT_CONFIG: dict[str, Any] = {
             "quota",
             "429",
             "token limit",
-            "context length",
-            "context window",
+            "usage limit",
+            "credits",
         ],
     },
 }
@@ -78,159 +86,112 @@ DEFAULT_STATE: dict[str, Any] = {
 
 EVENT_DOCS: dict[str, dict[str, dict[str, str]]] = {
     "codex": {
-        "agent-turn-complete": {
-            "en": "Raw Codex notify event after an assistant turn completes.",
-            "zh": "Codex 助手回合完成后触发的原始 notify 事件。",
+        "session-start": {
+            "en": "Optional startup sound. Codex does not currently emit native session-start via notify; trigger manually if needed.",
+            "zh": "可选启动音。Codex 目前不会通过 notify 原生发出 session-start，需要手动触发。",
         },
         "task-complete": {
-            "en": "Inferred completion event from agent-turn-complete when no error/permission/resource hint is detected.",
-            "zh": "从 agent-turn-complete 推断出的普通完成事件（未命中错误/权限/资源关键词）。",
+            "en": "Default completion category for normal agent-turn-complete results.",
+            "zh": "普通 agent-turn-complete 结果的默认完成类别。",
         },
         "permission-needed": {
-            "en": "Inferred permission-required event, or mapped from approval-style events.",
-            "zh": "推断出的需要权限事件，或由审批类事件映射而来。",
+            "en": "Permission/approval required category (mapped from approval-requested or inferred from completion text).",
+            "zh": "需要权限/审批类别（由 approval-requested 映射或从完成文本推断）。",
         },
         "task-error": {
-            "en": "Inferred error event from turn result text, or mapped from fail/error style events.",
-            "zh": "从回合文本推断出的错误事件，或由 fail/error 类事件映射而来。",
+            "en": "Error category inferred from completion text.",
+            "zh": "从完成文本推断的错误类别。",
+        },
+        "context-compact": {
+            "en": "Context compaction category (future/manual trigger). Falls back to resource-limit.",
+            "zh": "上下文压缩类别（未来/手动触发）。会回退到 resource-limit。",
         },
         "resource-limit": {
-            "en": "Inferred resource-limit event from turn result text (for example quota/rate-limit).",
-            "zh": "从回合文本推断出的资源限制事件（如 quota/rate-limit）。",
-        },
-        "approval-requested": {
-            "en": "Codex TUI approval-requested event when configured in notifications.",
-            "zh": "在 Codex TUI notifications 配置中可触发的 approval-requested 事件。",
-        },
-        "session-start": {
-            "en": "Optional session start event used by adapters or custom wiring.",
-            "zh": "可选的会话开始事件，通常由适配层或自定义脚本触发。",
+            "en": "General resource-limit category (quota/rate/token/credits).",
+            "zh": "通用资源限制类别（quota/rate/token/credits）。",
         },
     },
     "claude": {
         "session-start": {
-            "en": "Claude SessionStart event (generic fallback for session start).",
-            "zh": "Claude 的 SessionStart 事件（会话开始通用回退目录）。",
-        },
-        "session-start-startup": {
-            "en": "SessionStart variant when source is startup.",
-            "zh": "SessionStart 的 startup 变体。",
-        },
-        "session-start-clear": {
-            "en": "SessionStart variant when source is clear.",
-            "zh": "SessionStart 的 clear 变体。",
-        },
-        "session-start-resume": {
-            "en": "SessionStart variant when source is resume.",
-            "zh": "SessionStart 的 resume 变体。",
-        },
-        "session-start-compact": {
-            "en": "SessionStart variant when source is compact.",
-            "zh": "SessionStart 的 compact 变体。",
+            "en": "Mapped from SessionStart.",
+            "zh": "映射自 SessionStart。",
         },
         "session-end": {
-            "en": "Claude SessionEnd event.",
-            "zh": "Claude 的 SessionEnd 事件。",
+            "en": "Mapped from SessionEnd.",
+            "zh": "映射自 SessionEnd。",
         },
         "subagent-start": {
-            "en": "Claude SubagentStart event.",
-            "zh": "Claude 的 SubagentStart 事件。",
+            "en": "Mapped from SubagentStart.",
+            "zh": "映射自 SubagentStart。",
         },
         "subagent-stop": {
-            "en": "Sub-agent completion event (adapter or tool dependent).",
-            "zh": "子代理完成事件（取决于适配器或具体工具）。",
+            "en": "Mapped from SubagentStop.",
+            "zh": "映射自 SubagentStop。",
         },
-        "user-prompt-submit": {
-            "en": "Claude UserPromptSubmit event.",
-            "zh": "Claude 的 UserPromptSubmit 事件。",
+        "task-acknowledge": {
+            "en": "Mapped from UserPromptSubmit.",
+            "zh": "映射自 UserPromptSubmit。",
         },
-        "stop": {
-            "en": "Claude Stop event (task completed and waiting for next user input).",
-            "zh": "Claude 的 Stop 事件（任务完成并等待用户下一步输入）。",
+        "task-complete": {
+            "en": "Mapped from Stop (and optionally idle Notification).",
+            "zh": "映射自 Stop（以及可选 idle Notification）。",
         },
-        "notification": {
-            "en": "Claude Notification event (generic fallback).",
-            "zh": "Claude 的 Notification 事件（通用回退目录）。",
+        "permission-needed": {
+            "en": "Mapped from PermissionRequest and permission-related Notification types.",
+            "zh": "映射自 PermissionRequest 与权限相关 Notification 子类型。",
         },
-        "notification-permission-prompt": {
-            "en": "Notification subtype: permission_prompt.",
-            "zh": "Notification 子类型：permission_prompt。",
+        "task-error": {
+            "en": "Mapped from PostToolUseFailure.",
+            "zh": "映射自 PostToolUseFailure。",
         },
-        "notification-idle-prompt": {
-            "en": "Notification subtype: idle_prompt.",
-            "zh": "Notification 子类型：idle_prompt。",
+        "context-compact": {
+            "en": "Mapped from PreCompact.",
+            "zh": "映射自 PreCompact。",
         },
-        "notification-elicitation-dialog": {
-            "en": "Notification subtype: elicitation_dialog.",
-            "zh": "Notification 子类型：elicitation_dialog。",
-        },
-        "permission-request": {
-            "en": "Claude PermissionRequest event.",
-            "zh": "Claude 的 PermissionRequest 事件。",
-        },
-        "post-tool-use-failure": {
-            "en": "Claude PostToolUseFailure event (often used for failed Bash/tool execution).",
-            "zh": "Claude 的 PostToolUseFailure 事件（常用于 Bash/工具执行失败）。",
-        },
-        "pre-compact": {
-            "en": "Claude PreCompact event before context compaction starts.",
-            "zh": "Claude 在上下文压缩前触发的 PreCompact 事件。",
-        },
-        "pre-tool-use": {
-            "en": "Tool pre-execution event (tooling/version dependent).",
-            "zh": "工具执行前事件（取决于工具与版本）。",
-        },
-        "post-tool-use": {
-            "en": "Tool post-execution event (tooling/version dependent).",
-            "zh": "工具执行后事件（取决于工具与版本）。",
+        "resource-limit": {
+            "en": "Generic resource-limit bucket for non-compact quota/limit signals.",
+            "zh": "非 compact 的配额/限制信号的通用资源限制桶。",
         },
     },
 }
 
+CODEX_CATEGORIES = set(EVENT_DOCS["codex"].keys())
+CLAUDE_CATEGORIES = set(EVENT_DOCS["claude"].keys())
+
 CODEX_ALIAS_MAP = {
     "agent-turn-complete": "agent-turn-complete",
+    "task-complete": "task-complete",
     "complete": "task-complete",
     "done": "task-complete",
-    "task-complete": "task-complete",
-    "approval-requested": "approval-requested",
+    "approval-requested": "permission-needed",
     "permission": "permission-needed",
     "permission-needed": "permission-needed",
     "approve": "permission-needed",
     "approval": "permission-needed",
-    "error": "task-error",
     "task-error": "task-error",
+    "error": "task-error",
     "fail": "task-error",
     "failed": "task-error",
     "resource-limit": "resource-limit",
     "rate-limit": "resource-limit",
     "quota": "resource-limit",
+    "context-compact": "context-compact",
+    "precompact": "context-compact",
+    "compact": "context-compact",
     "session-start": "session-start",
     "start": "session-start",
 }
 
-CLAUDE_ALIAS_MAP = {
-    "sessionstart": "session-start",
+CLAUDE_EVENT_TO_CATEGORY = {
     "session-start": "session-start",
-    "sessionend": "session-end",
     "session-end": "session-end",
-    "subagentstart": "subagent-start",
     "subagent-start": "subagent-start",
-    "subagentstop": "subagent-stop",
     "subagent-stop": "subagent-stop",
-    "userpromptsubmit": "user-prompt-submit",
-    "user-prompt-submit": "user-prompt-submit",
-    "stop": "stop",
-    "notification": "notification",
-    "permissionrequest": "permission-request",
-    "permission-request": "permission-request",
-    "posttoolusefailure": "post-tool-use-failure",
-    "post-tool-use-failure": "post-tool-use-failure",
-    "precompact": "pre-compact",
-    "pre-compact": "pre-compact",
-    "pretooluse": "pre-tool-use",
-    "pre-tool-use": "pre-tool-use",
-    "posttooluse": "post-tool-use",
-    "post-tool-use": "post-tool-use",
+    "user-prompt-submit": "task-acknowledge",
+    "stop": "task-complete",
+    "permission-request": "permission-needed",
+    "post-tool-use-failure": "task-error",
+    "pre-compact": "context-compact",
 }
 
 
@@ -557,7 +518,7 @@ def _infer_codex_event_from_message(message: str, config: dict[str, Any]) -> str
     if not isinstance(keywords, dict):
         return "task-complete"
 
-    for key in ("permission-needed", "resource-limit", "task-error"):
+    for key in ("context-compact", "resource-limit", "permission-needed", "task-error"):
         terms = keywords.get(key, [])
         if not isinstance(terms, list):
             continue
@@ -565,6 +526,12 @@ def _infer_codex_event_from_message(message: str, config: dict[str, Any]) -> str
             if isinstance(term, str) and term and term.lower() in lowered:
                 return key
     return "task-complete"
+
+
+def _with_compact_fallback(category: str) -> list[str]:
+    if category == "context-compact":
+        return ["context-compact", "resource-limit"]
+    return [category]
 
 
 def resolve_codex_events(raw_payload_text: str, event_override: str, config: dict[str, Any]) -> tuple[str, list[str]]:
@@ -583,19 +550,14 @@ def resolve_codex_events(raw_payload_text: str, event_override: str, config: dic
 
     if normalized == "agent-turn-complete":
         inferred = _infer_codex_event_from_message(message, config)
-        candidates.extend([inferred, "agent-turn-complete", "task-complete"])
-    elif normalized == "approval-requested":
-        candidates.extend(["approval-requested", "permission-needed"])
-    elif normalized:
-        candidates.append(normalized)
-        if normalized == "permission-needed":
-            candidates.append("approval-requested")
-    else:
-        candidates.extend(["task-complete", "agent-turn-complete"])
-
-    if payload_is_turn_complete and normalized != "agent-turn-complete":
+        candidates.extend(_with_compact_fallback(inferred))
+    elif normalized in CODEX_CATEGORIES:
+        candidates.extend(_with_compact_fallback(normalized))
+    elif payload_is_turn_complete:
         inferred = _infer_codex_event_from_message(message, config)
-        candidates.insert(0, inferred)
+        candidates.extend(_with_compact_fallback(inferred))
+    elif not normalized:
+        candidates.append("task-complete")
 
     candidates = _dedupe_keep_order(candidates)
     return normalized or "unknown", candidates
@@ -604,46 +566,46 @@ def resolve_codex_events(raw_payload_text: str, event_override: str, config: dic
 def _normalize_claude_event(raw_event: str) -> str:
     if not raw_event:
         return ""
-    key = re.sub(r"[^A-Za-z0-9-]+", "", raw_event).lower()
-    return CLAUDE_ALIAS_MAP.get(key, _slug(raw_event))
+    key = re.sub(r"[^A-Za-z0-9]+", "", raw_event).lower()
+    table = {
+        "sessionstart": "session-start",
+        "sessionend": "session-end",
+        "subagentstart": "subagent-start",
+        "subagentstop": "subagent-stop",
+        "userpromptsubmit": "user-prompt-submit",
+        "stop": "stop",
+        "permissionrequest": "permission-request",
+        "posttoolusefailure": "post-tool-use-failure",
+        "precompact": "pre-compact",
+        "notification": "notification",
+    }
+    return table.get(key, _slug(raw_event))
 
 
 def resolve_claude_events(raw_payload_text: str, event_override: str) -> tuple[str, list[str]]:
     payload = _parse_payload(raw_payload_text)
     payload_event = ""
     notification_type = ""
-    source = ""
 
     if isinstance(payload, dict):
         payload_event = str(payload.get("hook_event_name") or payload.get("event") or "")
         notification_type = str(payload.get("notification_type") or "")
-        source = str(payload.get("source") or "")
 
     raw_event = event_override or payload_event
     normalized = _normalize_claude_event(raw_event)
     candidates: list[str] = []
 
-    if normalized == "session-start":
-        source_slug = _slug(source)
-        if source_slug:
-            candidates.append(f"session-start-{source_slug}")
-        candidates.append("session-start")
+    if normalized in CLAUDE_EVENT_TO_CATEGORY:
+        mapped = CLAUDE_EVENT_TO_CATEGORY[normalized]
+        candidates.extend(_with_compact_fallback(mapped))
     elif normalized == "notification":
         notif_slug = _slug(notification_type)
-        if notif_slug:
-            candidates.append(f"notification-{notif_slug}")
-            if notif_slug == "permission-prompt":
-                candidates.append("permission-request")
-        candidates.append("notification")
-    elif normalized:
-        candidates.append(normalized)
-    else:
-        candidates.append("stop")
-
-    if raw_event:
-        raw_slug = _slug(raw_event)
-        if raw_slug and raw_slug != normalized and raw_slug not in CLAUDE_ALIAS_MAP:
-            candidates.append(raw_slug)
+        if notif_slug in {"permission-prompt", "elicitation-dialog"}:
+            candidates.append("permission-needed")
+        elif notif_slug == "idle-prompt":
+            candidates.append("task-complete")
+    elif normalized in CLAUDE_CATEGORIES:
+        candidates.extend(_with_compact_fallback(normalized))
 
     candidates = _dedupe_keep_order(candidates)
     return normalized or "unknown", candidates

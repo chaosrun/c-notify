@@ -50,12 +50,27 @@ Useful flags:
 ./install.sh --bin-dir=/custom/bin
 ```
 
-Then put your own files in folders like:
+Core categories (Codex):
 
 - `~/.c-notify/sounds/codex/task-complete/`
 - `~/.c-notify/sounds/codex/permission-needed/`
-- `~/.c-notify/sounds/claude/stop/`
-- `~/.c-notify/sounds/claude/permission-request/`
+- `~/.c-notify/sounds/codex/task-error/`
+- `~/.c-notify/sounds/codex/context-compact/`
+- `~/.c-notify/sounds/codex/resource-limit/`
+- `~/.c-notify/sounds/codex/session-start/` (optional/manual)
+
+Core categories (Claude):
+
+- `~/.c-notify/sounds/claude/session-start/`
+- `~/.c-notify/sounds/claude/session-end/` (optional)
+- `~/.c-notify/sounds/claude/subagent-start/` (optional)
+- `~/.c-notify/sounds/claude/subagent-stop/` (optional)
+- `~/.c-notify/sounds/claude/task-acknowledge/`
+- `~/.c-notify/sounds/claude/task-complete/`
+- `~/.c-notify/sounds/claude/permission-needed/`
+- `~/.c-notify/sounds/claude/task-error/`
+- `~/.c-notify/sounds/claude/context-compact/`
+- `~/.c-notify/sounds/claude/resource-limit/`
 
 ## Hook Wiring
 
@@ -68,7 +83,7 @@ notify = ["python3", "/ABSOLUTE/PATH/TO/c-notify/c-notify.py", "hook", "--tool",
 Notes:
 
 - Codex primarily sends `agent-turn-complete` through `notify`.
-- If you also configure TUI notifications, `approval-requested` can be used by your hook pipeline.
+- `approval-requested` (if present in your pipeline) maps to `permission-needed`.
 
 ### Claude Code (`~/.claude/settings.json`)
 
@@ -84,6 +99,9 @@ Use one command entry for all events:
       { "matcher": "", "hooks": [ { "type": "command", "command": "python3 /ABSOLUTE/PATH/TO/c-notify/c-notify.py hook --tool claude", "timeout": 10, "async": true } ] }
     ],
     "SubagentStart": [
+      { "matcher": "", "hooks": [ { "type": "command", "command": "python3 /ABSOLUTE/PATH/TO/c-notify/c-notify.py hook --tool claude", "timeout": 10, "async": true } ] }
+    ],
+    "SubagentStop": [
       { "matcher": "", "hooks": [ { "type": "command", "command": "python3 /ABSOLUTE/PATH/TO/c-notify/c-notify.py hook --tool claude", "timeout": 10, "async": true } ] }
     ],
     "UserPromptSubmit": [
@@ -118,8 +136,6 @@ List current known events:
 ./c-notify events --tool claude
 ```
 
-The script also supports unknown/custom event folder names by slug.
-
 ## Commands
 
 ```bash
@@ -131,7 +147,7 @@ The script also supports unknown/custom event folder names by slug.
 ./c-notify toggle
 ./c-notify status
 ./c-notify events --tool claude
-./c-notify play --tool claude --event stop
+./c-notify play --tool claude --event task-complete
 ./c-notify hook --tool codex --debug
 ./c-notify hook --tool claude --debug
 ```
@@ -155,7 +171,7 @@ Important keys:
 - `extensions`: allowed audio extensions
 - `prevent_overlap`: skip new playback while prior process is alive
 - `cooldown_seconds` and `cooldown_by_event`: optional throttling
-- `codex_keywords`: keyword inference for `permission-needed`, `task-error`, `resource-limit`
+- `codex_keywords`: keyword inference for `context-compact`, `permission-needed`, `task-error`, `resource-limit`
 
 ## Platform Support
 

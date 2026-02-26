@@ -194,7 +194,6 @@ update_claude_settings() {
 
   python3 - <<'PY' "$CLAUDE_SETTINGS_FILE" "$SCRIPT_DIR/c-notify.py"
 import json
-import os
 import sys
 from pathlib import Path
 
@@ -218,6 +217,7 @@ events = [
     ("SessionStart", "", True),
     ("SessionEnd", "", True),
     ("SubagentStart", "", True),
+    ("SubagentStop", "", True),
     ("UserPromptSubmit", "", True),
     ("Stop", "", True),
     ("Notification", "", True),
