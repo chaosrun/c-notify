@@ -106,9 +106,6 @@ notify = ["python3", "/ABSOLUTE/PATH/TO/c-notify/c-notify.py", "hook", "--tool",
     "Stop": [
       { "matcher": "", "hooks": [ { "type": "command", "command": "python3 /ABSOLUTE/PATH/TO/c-notify/c-notify.py hook --tool claude", "timeout": 10, "async": true } ] }
     ],
-    "Notification": [
-      { "matcher": "", "hooks": [ { "type": "command", "command": "python3 /ABSOLUTE/PATH/TO/c-notify/c-notify.py hook --tool claude", "timeout": 10, "async": true } ] }
-    ],
     "PermissionRequest": [
       { "matcher": "", "hooks": [ { "type": "command", "command": "python3 /ABSOLUTE/PATH/TO/c-notify/c-notify.py hook --tool claude", "timeout": 10, "async": true } ] }
     ],
@@ -121,6 +118,8 @@ notify = ["python3", "/ABSOLUTE/PATH/TO/c-notify/c-notify.py", "hook", "--tool",
   }
 }
 ```
+
+`Notification` 不再注册；权限提示只由 `PermissionRequest` 触发。
 
 ## 事件覆盖范围
 

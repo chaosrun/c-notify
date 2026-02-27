@@ -219,7 +219,6 @@ events = [
     ("SubagentStart", "", True),
     ("UserPromptSubmit", "", True),
     ("Stop", "", True),
-    ("Notification", "", True),
     ("PermissionRequest", "", True),
     ("PostToolUseFailure", "Bash", True),
     ("PreCompact", "", True),

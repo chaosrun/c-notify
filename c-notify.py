@@ -131,12 +131,12 @@ EVENT_DOCS: dict[str, dict[str, dict[str, str]]] = {
             "zh": "映射自 UserPromptSubmit。",
         },
         "task-complete": {
-            "en": "Mapped from Stop (and optionally idle Notification).",
-            "zh": "映射自 Stop（以及可选 idle Notification）。",
+            "en": "Mapped from Stop.",
+            "zh": "映射自 Stop。",
         },
         "permission-needed": {
-            "en": "Mapped from PermissionRequest and permission-related Notification types.",
-            "zh": "映射自 PermissionRequest 与权限相关 Notification 子类型。",
+            "en": "Mapped from PermissionRequest.",
+            "zh": "映射自 PermissionRequest。",
         },
         "task-error": {
             "en": "Mapped from PostToolUseFailure.",
@@ -576,7 +576,6 @@ def _normalize_claude_event(raw_event: str) -> str:
         "permissionrequest": "permission-request",
         "posttoolusefailure": "post-tool-use-failure",
         "precompact": "pre-compact",
-        "notification": "notification",
     }
     return table.get(key, _slug(raw_event))
 
@@ -584,11 +583,9 @@ def _normalize_claude_event(raw_event: str) -> str:
 def resolve_claude_events(raw_payload_text: str, event_override: str) -> tuple[str, list[str]]:
     payload = _parse_payload(raw_payload_text)
     payload_event = ""
-    notification_type = ""
 
     if isinstance(payload, dict):
         payload_event = str(payload.get("hook_event_name") or payload.get("event") or "")
-        notification_type = str(payload.get("notification_type") or "")
 
     raw_event = event_override or payload_event
     normalized = _normalize_claude_event(raw_event)
@@ -597,12 +594,6 @@ def resolve_claude_events(raw_payload_text: str, event_override: str) -> tuple[s
     if normalized in CLAUDE_EVENT_TO_CATEGORY:
         mapped = CLAUDE_EVENT_TO_CATEGORY[normalized]
         candidates.extend(_with_compact_fallback(mapped))
-    elif normalized == "notification":
-        notif_slug = _slug(notification_type)
-        if notif_slug in {"permission-prompt", "elicitation-dialog"}:
-            candidates.append("permission-needed")
-        elif notif_slug == "idle-prompt":
-            candidates.append("task-complete")
     elif normalized in CLAUDE_CATEGORIES:
         candidates.extend(_with_compact_fallback(normalized))
 

@@ -108,9 +108,6 @@ Use one command entry for all events:
     "Stop": [
       { "matcher": "", "hooks": [ { "type": "command", "command": "python3 /ABSOLUTE/PATH/TO/c-notify/c-notify.py hook --tool claude", "timeout": 10, "async": true } ] }
     ],
-    "Notification": [
-      { "matcher": "", "hooks": [ { "type": "command", "command": "python3 /ABSOLUTE/PATH/TO/c-notify/c-notify.py hook --tool claude", "timeout": 10, "async": true } ] }
-    ],
     "PermissionRequest": [
       { "matcher": "", "hooks": [ { "type": "command", "command": "python3 /ABSOLUTE/PATH/TO/c-notify/c-notify.py hook --tool claude", "timeout": 10, "async": true } ] }
     ],
@@ -123,6 +120,8 @@ Use one command entry for all events:
   }
 }
 ```
+
+`Notification` is intentionally not registered; `PermissionRequest` is the only permission trigger.
 
 ## Event Coverage
 
