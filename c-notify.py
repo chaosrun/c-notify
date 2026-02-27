@@ -38,46 +38,6 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "cooldown_seconds": 0.0,
     "cooldown_by_event": {},
     "hook_strict_exit": False,
-    "codex_infer_permission_from_text": False,
-    "codex_keywords": {
-        "context-compact": [
-            "context compact",
-            "compacting context",
-            "compacting conversation",
-            "context window is full",
-            "precompact",
-            "context compression",
-        ],
-        "permission-needed": [
-            "needs your approval",
-            "need your approval",
-            "approval requested",
-            "approve this",
-            "approve the command",
-            "allow this command",
-            "permission prompt",
-        ],
-        "task-error": [
-            "error",
-            "failed",
-            "unable",
-            "cannot",
-            "can't",
-            "denied",
-            "permission denied",
-            "not found",
-            "timed out",
-            "exception",
-        ],
-        "resource-limit": [
-            "rate limit",
-            "quota",
-            "429",
-            "token limit",
-            "usage limit",
-            "credits",
-        ],
-    },
 }
 
 DEFAULT_STATE: dict[str, Any] = {
@@ -97,20 +57,20 @@ EVENT_DOCS: dict[str, dict[str, dict[str, str]]] = {
             "zh": "普通 agent-turn-complete 结果的默认完成类别。",
         },
         "permission-needed": {
-            "en": "Permission/approval category. Codex notify currently does not emit approval-requested; this category is for optional text inference and future/manual compatibility.",
-            "zh": "需要权限/审批类别。Codex notify 目前不会发出 approval-requested；此类别用于可选文本推断以及未来/手动兼容。",
+            "en": "Permission/approval category for explicit/manual routing. Codex notify currently does not emit approval-requested.",
+            "zh": "用于显式/手动路由的权限/审批类别。Codex notify 目前不会发出 approval-requested。",
         },
         "task-error": {
-            "en": "Error category inferred from completion text.",
-            "zh": "从完成文本推断的错误类别。",
+            "en": "Explicit/manual error category.",
+            "zh": "显式/手动错误类别。",
         },
         "context-compact": {
-            "en": "Context compaction category (future/manual trigger). Falls back to resource-limit.",
-            "zh": "上下文压缩类别（未来/手动触发）。会回退到 resource-limit。",
+            "en": "Explicit/manual context compaction category. Falls back to resource-limit.",
+            "zh": "显式/手动上下文压缩类别。会回退到 resource-limit。",
         },
         "resource-limit": {
-            "en": "General resource-limit category (quota/rate/token/credits).",
-            "zh": "通用资源限制类别（quota/rate/token/credits）。",
+            "en": "Explicit/manual general resource-limit category.",
+            "zh": "显式/手动通用资源限制类别。",
         },
     },
     "claude": {
@@ -227,6 +187,9 @@ def _merge(dst: dict[str, Any], src: dict[str, Any]) -> dict[str, Any]:
 
 def load_config() -> dict[str, Any]:
     config = _merge(json.loads(json.dumps(DEFAULT_CONFIG)), _load_json(CONFIG_PATH, {}))
+    # Remove retired Codex semantic-inference options.
+    config.pop("codex_infer_permission_from_text", None)
+    config.pop("codex_keywords", None)
     _save_json(CONFIG_PATH, config)
     return config
 
@@ -509,42 +472,18 @@ def _normalize_codex_event(raw_event: str) -> str:
     return CODEX_ALIAS_MAP.get(lowered, lowered)
 
 
-def _infer_codex_event_from_message(message: str, config: dict[str, Any]) -> str:
-    lowered = (message or "").lower()
-    keywords = config.get("codex_keywords", {})
-    if not isinstance(keywords, dict):
-        return "task-complete"
-
-    infer_permission = bool(config.get("codex_infer_permission_from_text", False))
-    infer_order = ["context-compact", "resource-limit"]
-    if infer_permission:
-        infer_order.append("permission-needed")
-    infer_order.append("task-error")
-
-    for key in infer_order:
-        terms = keywords.get(key, [])
-        if not isinstance(terms, list):
-            continue
-        for term in terms:
-            if isinstance(term, str) and term and term.lower() in lowered:
-                return key
-    return "task-complete"
-
-
 def _with_compact_fallback(category: str) -> list[str]:
     if category == "context-compact":
         return ["context-compact", "resource-limit"]
     return [category]
 
 
-def resolve_codex_events(raw_payload_text: str, event_override: str, config: dict[str, Any]) -> tuple[str, list[str]]:
+def resolve_codex_events(raw_payload_text: str, event_override: str) -> tuple[str, list[str]]:
     payload = _parse_payload(raw_payload_text)
     payload_event = ""
-    message = ""
 
     if isinstance(payload, dict):
         payload_event = str(payload.get("type") or payload.get("event") or "")
-        message = str(payload.get("last-assistant-message") or payload.get("message") or "")
 
     raw_event = event_override or payload_event
     normalized = _normalize_codex_event(raw_event)
@@ -554,8 +493,7 @@ def resolve_codex_events(raw_payload_text: str, event_override: str, config: dic
     if normalized in CODEX_CATEGORIES:
         candidates.extend(_with_compact_fallback(normalized))
     elif normalized == "agent-turn-complete" or payload_is_turn_complete:
-        inferred = _infer_codex_event_from_message(message, config)
-        candidates.extend(_with_compact_fallback(inferred))
+        candidates.append("task-complete")
     elif not normalized:
         candidates.append("task-complete")
 
@@ -664,7 +602,6 @@ def cmd_status() -> int:
     print(f"state: {STATE_PATH}")
     print(f"sound_root: {_sound_root(config)}")
     print(f"hook_strict_exit: {bool(config.get('hook_strict_exit', False))}")
-    print(f"codex_infer_permission_from_text: {bool(config.get('codex_infer_permission_from_text', False))}")
     print("platform_support: macOS/Linux")
     return 0
 
@@ -709,7 +646,7 @@ def cmd_hook(tool: str, event_override: str, payload_arg: str | None, extra: lis
 
     payload_text = _resolve_payload_text(payload_arg, extra)
     if tool == "codex":
-        normalized, candidates = resolve_codex_events(payload_text, event_override, config)
+        normalized, candidates = resolve_codex_events(payload_text, event_override)
     else:
         normalized, candidates = resolve_claude_events(payload_text, event_override)
 

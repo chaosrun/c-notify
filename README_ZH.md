@@ -12,7 +12,7 @@
 - 便携总开关：`on / off / toggle / status`
 - 支持 macOS / Linux 播放后端
 - 自动初始化事件目录与中英双语 `README.md`
-- 支持 Codex `agent-turn-complete` 的可选关键词推断
+- Codex 路由是确定性的：`agent-turn-complete` 直接映射到 `task-complete`
 
 ## 快速开始
 
@@ -80,9 +80,10 @@ notify = ["python3", "/ABSOLUTE/PATH/TO/c-notify/c-notify.py", "hook", "--tool",
 说明：
 
 - Codex `notify` 在当前正常链路下主要是 `agent-turn-complete`。
+- Codex 不做消息语义推断；`agent-turn-complete` 总是路由到 `task-complete`。
+- Codex 的 `task-error` / `resource-limit` / `context-compact` 当前都属于显式/手动类别，除非未来 Codex 原生发出对应事件。
 - `approval-requested` 作为未来/手动兼容别名保留；如果外部传入该事件，会映射到 `permission-needed`。
 - 如果你要“实时审批提示”，当前应使用 Codex TUI 的 `notifications = ["approval-requested"]`，不要依赖 `notify`。
-- `codex_infer_permission_from_text` 默认是 `false`，避免文本误判。
 
 ### Claude Code（`~/.claude/settings.json`）
 
@@ -167,8 +168,6 @@ notify = ["python3", "/ABSOLUTE/PATH/TO/c-notify/c-notify.py", "hook", "--tool",
 - `prevent_overlap`：前一个音频进程未结束时是否跳过新播放
 - `cooldown_seconds` / `cooldown_by_event`：节流设置
 - `hook_strict_exit`：默认 `false`；开启后 unmapped/no-sound 会返回非零退出码
-- `codex_infer_permission_from_text`：默认 `false`，可选开启权限文本推断
-- `codex_keywords`：Codex 文本关键词推断规则（`context-compact`、`task-error`、`resource-limit`，以及可选的 `permission-needed`）
 
 ## 平台支持
 
