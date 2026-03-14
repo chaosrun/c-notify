@@ -10,6 +10,7 @@ NO_PATH=false
 HOME_DIR="${C_NOTIFY_INSTALL_HOME:-$HOME}"
 BIN_DIR="${C_NOTIFY_BIN_DIR:-$HOME_DIR/.local/bin}"
 CODEX_CONFIG_FILE="${C_NOTIFY_CODEX_CONFIG:-$HOME_DIR/.codex/config.toml}"
+CODEX_HOOKS_FILE="${C_NOTIFY_CODEX_HOOKS:-$HOME_DIR/.codex/hooks.json}"
 CLAUDE_SETTINGS_FILE="${C_NOTIFY_CLAUDE_SETTINGS:-$HOME_DIR/.claude/settings.json}"
 
 usage() {
@@ -17,7 +18,7 @@ usage() {
 Usage: ./install.sh [options]
 
 Options:
-  --no-codex     Skip writing ~/.codex/config.toml
+  --no-codex     Skip writing ~/.codex/config.toml and ~/.codex/hooks.json
   --no-claude    Skip writing ~/.claude/settings.json
   --no-path      Skip PATH export block in shell rc file
   --bin-dir=DIR  Install c-notify symlink to DIR
@@ -27,6 +28,7 @@ Environment overrides:
   C_NOTIFY_INSTALL_HOME
   C_NOTIFY_BIN_DIR
   C_NOTIFY_CODEX_CONFIG
+  C_NOTIFY_CODEX_HOOKS
   C_NOTIFY_CLAUDE_SETTINGS
   C_NOTIFY_RC_FILE
   C_NOTIFY_HOME
@@ -154,6 +156,7 @@ if text and not text.endswith("\n"):
 lines = text.splitlines()
 
 notify_line = "notify = " + json.dumps(["python3", str(script_path), "hook", "--tool", "codex"])
+codex_hooks_line = "codex_hooks = true"
 
 def is_table_header(line: str) -> bool:
     return re.match(r"^\s*\[[^\]]+\]\s*$", line) is not None
@@ -183,8 +186,126 @@ def set_top_level_key(lines_in, key, value_line):
         out.insert(insert_at, value_line)
     return out
 
+def set_table_key(lines_in, table, key, value_line):
+    out = []
+    in_target = False
+    found_table = False
+    found_key = False
+    key_re = re.compile(rf"^\s*{re.escape(key)}\s*=")
+    for line in lines_in:
+        if is_table_header(line):
+            if in_target and not found_key:
+                out.append(value_line)
+                found_key = True
+            table_name = line.strip()[1:-1].strip()
+            in_target = table_name == table
+            if in_target:
+                found_table = True
+            out.append(line)
+            continue
+        if in_target and key_re.match(line):
+            if not found_key:
+                out.append(value_line)
+                found_key = True
+            continue
+        out.append(line)
+    if in_target and not found_key:
+        out.append(value_line)
+    if not found_table:
+        if out and out[-1].strip():
+            out.append("")
+        out.extend([f"[{table}]", value_line])
+    return out
+
 new_lines = set_top_level_key(lines, "notify", notify_line)
+new_lines = set_table_key(new_lines, "features", "codex_hooks", codex_hooks_line)
 config_path.write_text("\n".join(new_lines).rstrip() + "\n", encoding="utf-8")
+PY
+}
+
+update_codex_hooks() {
+  mkdir -p "$(dirname "$CODEX_HOOKS_FILE")"
+  [ -f "$CODEX_HOOKS_FILE" ] || echo '{}' > "$CODEX_HOOKS_FILE"
+
+  python3 - <<'PY' "$CODEX_HOOKS_FILE" "$SCRIPT_DIR/c-notify.py"
+import json
+import sys
+from pathlib import Path
+
+hooks_path = Path(sys.argv[1])
+script_path = Path(sys.argv[2])
+cmd = f"python3 {script_path} hook --tool codex --event session-start"
+status_message = "Playing c-notify session-start sound"
+
+try:
+    settings = json.loads(hooks_path.read_text(encoding="utf-8"))
+    if not isinstance(settings, dict):
+        settings = {}
+except Exception:
+    settings = {}
+
+hooks = settings.setdefault("hooks", {})
+if not isinstance(hooks, dict):
+    hooks = {}
+    settings["hooks"] = hooks
+
+events = ["SessionStart"]
+
+def make_entry():
+    return {
+        "hooks": [
+            {
+                "type": "command",
+                "command": cmd,
+                "timeout": 10,
+                "statusMessage": status_message,
+            }
+        ]
+    }
+
+def is_c_notify_command(command: str) -> bool:
+    normalized = " ".join(str(command).lower().split())
+    return "c-notify" in normalized and "hook --tool codex" in normalized
+
+def is_c_notify_entry(entry):
+    if not isinstance(entry, dict):
+        return False
+    direct_command = entry.get("command")
+    if isinstance(direct_command, str) and is_c_notify_command(direct_command):
+        return True
+    subhooks = entry.get("hooks", [])
+    if not isinstance(subhooks, list):
+        return False
+    for hook in subhooks:
+        if not isinstance(hook, dict):
+            continue
+        if is_c_notify_command(str(hook.get("command", ""))):
+            return True
+    return False
+
+managed_events = set(events)
+
+for event_name in list(hooks.keys()):
+    event_hooks = hooks.get(event_name, [])
+    if not isinstance(event_hooks, list):
+        continue
+    cleaned = [entry for entry in event_hooks if not is_c_notify_entry(entry)]
+    if event_name in managed_events:
+        hooks[event_name] = cleaned
+    elif cleaned:
+        hooks[event_name] = cleaned
+    else:
+        del hooks[event_name]
+
+for event_name in events:
+    event_hooks = hooks.get(event_name, [])
+    if not isinstance(event_hooks, list):
+        event_hooks = []
+    event_hooks.append(make_entry())
+    hooks[event_name] = event_hooks
+
+settings["hooks"] = hooks
+hooks_path.write_text(json.dumps(settings, indent=2) + "\n", encoding="utf-8")
 PY
 }
 
@@ -293,6 +414,7 @@ ensure_path_block
 
 if [ "$NO_CODEX" = false ]; then
   update_codex_config
+  update_codex_hooks
 fi
 if [ "$NO_CLAUDE" = false ]; then
   update_claude_settings
@@ -306,6 +428,7 @@ echo "Install complete."
 echo "Binary: $BIN_DIR/c-notify"
 echo "Shell rc: $RC_FILE"
 [ "$NO_CODEX" = false ] && echo "Codex config updated: $CODEX_CONFIG_FILE"
+[ "$NO_CODEX" = false ] && echo "Codex hooks updated: $CODEX_HOOKS_FILE"
 [ "$NO_CLAUDE" = false ] && echo "Claude settings updated: $CLAUDE_SETTINGS_FILE"
 echo ""
 echo "Next:"

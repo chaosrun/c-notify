@@ -5,6 +5,8 @@
 
 音频文件由用户自行放入，仓库本身不内置音频资产。
 
+English documentation: [README.md](README.md)
+
 ## 功能
 
 - 按工具分命名空间（`codex` 与 `claude`），事件集合可不同
@@ -12,6 +14,7 @@
 - 便携总开关：`on / off / toggle / status`
 - 支持 macOS / Linux 播放后端
 - 自动初始化事件目录与中英双语 `README.md`
+- 支持 Codex `0.114.0+` 的实验性 `SessionStart` hook
 - Codex 路由是确定性的：`agent-turn-complete` 直接映射到 `task-complete`
 
 ## 快速开始
@@ -37,6 +40,7 @@ chmod +x install.sh
 - 安装 `~/.local/bin/c-notify`（符号链接）
 - 在你的 shell rc 文件追加 PATH 块（zsh 用 `~/.zshrc`，bash 用 `~/.bashrc`/`~/.bash_profile`）
 - 写入/更新 Codex 的 `~/.codex/config.toml`
+- 写入/更新 Codex 的实验性 hooks 文件 `~/.codex/hooks.json`
 - 写入/更新 Claude 的 `~/.claude/settings.json`
 
 常用参数：
@@ -55,7 +59,7 @@ chmod +x install.sh
 - `~/.c-notify/sounds/codex/task-error/`
 - `~/.c-notify/sounds/codex/context-compact/`
 - `~/.c-notify/sounds/codex/resource-limit/`
-- `~/.c-notify/sounds/codex/session-start/`（可选/手动触发）
+- `~/.c-notify/sounds/codex/session-start/`（来自 Codex 实验性 `SessionStart`）
 
 核心类别（Claude）：
 
@@ -71,19 +75,46 @@ chmod +x install.sh
 
 ## Hook 配置
 
-### Codex（`~/.codex/config.toml`）
+### Codex（`~/.codex/config.toml` 与 `~/.codex/hooks.json`）
+
+`config.toml` 保留 `notify` 负责完成音效，并开启实验性 hooks 引擎：
 
 ```toml
 notify = ["python3", "/ABSOLUTE/PATH/TO/c-notify/c-notify.py", "hook", "--tool", "codex"]
+
+[features]
+codex_hooks = true
+```
+
+`hooks.json` 只接入 `SessionStart`：
+
+```json
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 /ABSOLUTE/PATH/TO/c-notify/c-notify.py hook --tool codex --event session-start",
+            "timeout": 10,
+            "statusMessage": "Playing c-notify session-start sound"
+          }
+        ]
+      }
+    ]
+  }
+}
 ```
 
 说明：
 
 - Codex `notify` 在当前正常链路下主要是 `agent-turn-complete`。
 - Codex 不做消息语义推断；`agent-turn-complete` 总是路由到 `task-complete`。
-- Codex 的 `task-error` / `resource-limit` / `context-compact` 当前都属于显式/手动类别，除非未来 Codex 原生发出对应事件。
-- `approval-requested` 作为未来/手动兼容别名保留；如果外部传入该事件，会映射到 `permission-needed`。
-- 如果你要“实时审批提示”，当前应使用 Codex TUI 的 `notifications = ["approval-requested"]`，不要依赖 `notify`。
+- Codex 实验性 hooks 当前只用于 `SessionStart`。
+- `Stop` 不写入 `hooks.json`；完成音效已经由 `notify` 负责，再接 `Stop` 会重复播放。
+- Codex 的 `permission-needed` / `task-error` / `resource-limit` / `context-compact` 当前仍属于显式/手动类别，除非未来 Codex 原生发出对应事件。
+- 示例文件见 [`examples/codex-config.toml`](examples/codex-config.toml) 与 [`examples/codex-hooks.json`](examples/codex-hooks.json)。
 
 ### Claude Code（`~/.claude/settings.json`）
 
@@ -144,6 +175,7 @@ notify = ["python3", "/ABSOLUTE/PATH/TO/c-notify/c-notify.py", "hook", "--tool",
 ./c-notify status
 ./c-notify events --tool claude
 ./c-notify play --tool claude --event task-complete
+./c-notify hook --tool codex --event session-start --debug
 ./c-notify hook --tool codex --debug
 ./c-notify hook --tool claude --debug
 ```

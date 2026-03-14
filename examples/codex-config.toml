@@ -1,2 +1,5 @@
-# Add this line in ~/.codex/config.toml
+# Add these settings in ~/.codex/config.toml
 notify = ["python3", "/ABSOLUTE/PATH/TO/c-notify/c-notify.py", "hook", "--tool", "codex"]
+
+[features]
+codex_hooks = true

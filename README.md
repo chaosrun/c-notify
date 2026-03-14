@@ -14,6 +14,7 @@ Audio files are user-provided. The repository does not bundle sound assets.
 - Global portable switch: `on / off / toggle / status`
 - Linux/macOS playback backend support
 - Event folder bootstrap with bilingual `README.md` per folder
+- Experimental Codex `SessionStart` hook support on Codex `0.114.0+`
 - Deterministic Codex routing: `agent-turn-complete` maps directly to `task-complete`
 
 ## Quick Start
@@ -39,6 +40,7 @@ What `install.sh` does:
 - Installs `c-notify` to `~/.local/bin/c-notify` (symlink)
 - Appends a PATH block to your shell rc file (`~/.zshrc` for zsh, `~/.bashrc`/`~/.bash_profile` for bash)
 - Writes/updates Codex notify config in `~/.codex/config.toml`
+- Writes/updates Codex experimental hooks in `~/.codex/hooks.json`
 - Writes/updates Claude hooks in `~/.claude/settings.json`
 
 Useful flags:
@@ -57,7 +59,7 @@ Core categories (Codex):
 - `~/.c-notify/sounds/codex/task-error/`
 - `~/.c-notify/sounds/codex/context-compact/`
 - `~/.c-notify/sounds/codex/resource-limit/`
-- `~/.c-notify/sounds/codex/session-start/` (optional/manual)
+- `~/.c-notify/sounds/codex/session-start/` (from Codex experimental `SessionStart`)
 
 Core categories (Claude):
 
@@ -73,19 +75,46 @@ Core categories (Claude):
 
 ## Hook Wiring
 
-### Codex (`~/.codex/config.toml`)
+### Codex (`~/.codex/config.toml` and `~/.codex/hooks.json`)
+
+`config.toml` keeps `notify` for completion and enables the experimental hooks engine:
 
 ```toml
 notify = ["python3", "/ABSOLUTE/PATH/TO/c-notify/c-notify.py", "hook", "--tool", "codex"]
+
+[features]
+codex_hooks = true
+```
+
+`hooks.json` wires only `SessionStart` into `c-notify`:
+
+```json
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 /ABSOLUTE/PATH/TO/c-notify/c-notify.py hook --tool codex --event session-start",
+            "timeout": 10,
+            "statusMessage": "Playing c-notify session-start sound"
+          }
+        ]
+      }
+    ]
+  }
+}
 ```
 
 Notes:
 
 - Codex `notify` currently sends `agent-turn-complete` payloads in normal operation.
 - Codex does not use message-semantic inference; `agent-turn-complete` always routes to `task-complete`.
-- Codex `task-error` / `resource-limit` / `context-compact` are explicit/manual categories unless Codex emits native events in the future.
-- `approval-requested` is kept as a future/manual compatibility alias and maps to `permission-needed` if such payloads are provided.
-- For real-time approval cues today, use Codex TUI notifications (`[tui] notifications = ["approval-requested"]`) rather than relying on `notify`.
+- Codex experimental hooks are used only for `SessionStart`.
+- `Stop` is intentionally not registered in `hooks.json`; completion already comes from `notify`, so wiring both would duplicate playback.
+- Codex `permission-needed` / `task-error` / `resource-limit` / `context-compact` remain explicit/manual categories unless Codex emits native events for them later.
+- Example files are included in [`examples/codex-config.toml`](examples/codex-config.toml) and [`examples/codex-hooks.json`](examples/codex-hooks.json).
 
 ### Claude Code (`~/.claude/settings.json`)
 
@@ -146,6 +175,7 @@ List current known events:
 ./c-notify status
 ./c-notify events --tool claude
 ./c-notify play --tool claude --event task-complete
+./c-notify hook --tool codex --event session-start --debug
 ./c-notify hook --tool codex --debug
 ./c-notify hook --tool claude --debug
 ```

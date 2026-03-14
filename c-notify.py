@@ -49,16 +49,16 @@ DEFAULT_STATE: dict[str, Any] = {
 EVENT_DOCS: dict[str, dict[str, dict[str, str]]] = {
     "codex": {
         "session-start": {
-            "en": "Optional startup sound. Codex does not currently emit native session-start via notify; trigger manually if needed.",
-            "zh": "可选启动音。Codex 目前不会通过 notify 原生发出 session-start，需要手动触发。",
+            "en": "Mapped from the experimental Codex SessionStart hook. Codex notify still does not emit session-start.",
+            "zh": "映射自实验性的 Codex SessionStart hook。Codex notify 仍不会发出 session-start。",
         },
         "task-complete": {
             "en": "Default completion category for normal agent-turn-complete results.",
             "zh": "普通 agent-turn-complete 结果的默认完成类别。",
         },
         "permission-needed": {
-            "en": "Permission/approval category for explicit/manual routing. Codex notify currently does not emit approval-requested.",
-            "zh": "用于显式/手动路由的权限/审批类别。Codex notify 目前不会发出 approval-requested。",
+            "en": "Explicit/manual permission category for Codex.",
+            "zh": "Codex 的显式/手动权限类别。",
         },
         "task-error": {
             "en": "Explicit/manual error category.",
@@ -137,6 +137,7 @@ CODEX_ALIAS_MAP = {
     "precompact": "context-compact",
     "compact": "context-compact",
     "session-start": "session-start",
+    "sessionstart": "session-start",
     "start": "session-start",
 }
 
