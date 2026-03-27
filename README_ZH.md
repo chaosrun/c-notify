@@ -126,6 +126,7 @@ codex_hooks = true
 - Codex 不做消息语义推断；`agent-turn-complete` 总是路由到 `task-complete`。
 - Codex 实验性 hooks 当前用于 `SessionStart` 与 `UserPromptSubmit`。
 - `UserPromptSubmit` 会映射到 `task-acknowledge`。
+- 对同一个 Codex `session_id`，紧跟在 `SessionStart` 后的首个 `UserPromptSubmit` 会被抑制，以避免新会话或恢复会话时连播两次声音。
 - `Stop` 不写入 `hooks.json`；完成音效已经由 `notify` 负责，再接 `Stop` 会重复播放。
 - Codex 的 `permission-needed` / `task-error` / `resource-limit` / `context-compact` 当前仍属于显式/手动类别，除非未来 Codex 原生发出对应事件。
 - 示例文件见 [`examples/codex-config.toml`](examples/codex-config.toml) 与 [`examples/codex-hooks.json`](examples/codex-hooks.json)。

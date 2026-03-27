@@ -126,6 +126,7 @@ Notes:
 - Codex does not use message-semantic inference; `agent-turn-complete` always routes to `task-complete`.
 - Codex experimental hooks are currently used for `SessionStart` and `UserPromptSubmit`.
 - `UserPromptSubmit` maps to `task-acknowledge`.
+- The first `UserPromptSubmit` immediately following `SessionStart` for the same Codex `session_id` is suppressed to avoid double playback on a brand-new or resumed session.
 - `Stop` is intentionally not registered in `hooks.json`; completion already comes from `notify`, so wiring both would duplicate playback.
 - Codex `permission-needed` / `task-error` / `resource-limit` / `context-compact` remain explicit/manual categories unless Codex emits native events for them later.
 - Example files are included in [`examples/codex-config.toml`](examples/codex-config.toml) and [`examples/codex-hooks.json`](examples/codex-hooks.json).

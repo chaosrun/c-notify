@@ -28,6 +28,7 @@ CONFIG_PATH = APP_DIR / "config.json"
 STATE_PATH = APP_DIR / "state.json"
 LOCK_PATH = APP_DIR / ".state.lock"
 DEFAULT_SOUND_ROOT = APP_DIR / "sounds"
+CODEX_SESSION_START_SUPPRESS_SECONDS = 15.0
 
 DEFAULT_CONFIG: dict[str, Any] = {
     "enabled": True,
@@ -44,6 +45,7 @@ DEFAULT_STATE: dict[str, Any] = {
     "last_played": {},
     "last_event_ts": {},
     "playback_pid": None,
+    "codex_pending_session_start": {},
 }
 
 EVENT_DOCS: dict[str, dict[str, dict[str, str]]] = {
@@ -508,6 +510,48 @@ def resolve_codex_events(raw_payload_text: str, event_override: str) -> tuple[st
     return normalized or "unknown", candidates
 
 
+def _codex_session_id(payload: Any) -> str:
+    if not isinstance(payload, dict):
+        return ""
+    return str(payload.get("session_id") or payload.get("thread-id") or "").strip()
+
+
+def _codex_apply_runtime_filters(
+    normalized: str,
+    candidates: list[str],
+    payload: Any,
+    state: dict[str, Any],
+) -> list[str]:
+    pending = state.setdefault("codex_pending_session_start", {})
+    if not isinstance(pending, dict):
+        pending = {}
+        state["codex_pending_session_start"] = pending
+
+    now_ts = time.time()
+    for session_id, raw_ts in list(pending.items()):
+        try:
+            ts = float(raw_ts)
+        except (TypeError, ValueError):
+            del pending[session_id]
+            continue
+        if (now_ts - ts) > CODEX_SESSION_START_SUPPRESS_SECONDS:
+            del pending[session_id]
+
+    session_id = _codex_session_id(payload)
+    if not session_id:
+        return candidates
+
+    if normalized == "session-start":
+        pending[session_id] = now_ts
+        return candidates
+
+    if normalized == "task-acknowledge" and session_id in pending:
+        del pending[session_id]
+        return []
+
+    return candidates
+
+
 def _normalize_claude_event(raw_event: str) -> str:
     if not raw_event:
         return ""
@@ -652,6 +696,7 @@ def cmd_hook(tool: str, event_override: str, payload_arg: str | None, extra: lis
         return 0
 
     payload_text = _resolve_payload_text(payload_arg, extra)
+    payload = _parse_payload(payload_text)
     if tool == "codex":
         normalized, candidates = resolve_codex_events(payload_text, event_override)
     else:
@@ -659,6 +704,8 @@ def cmd_hook(tool: str, event_override: str, payload_arg: str | None, extra: lis
 
     with state_lock():
         state = load_state()
+        if tool == "codex":
+            candidates = _codex_apply_runtime_filters(normalized, candidates, payload, state)
         sound_path, used_event = try_play_event(tool, candidates, config, state)
         save_state(state)
 
