@@ -5,9 +5,21 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 /ABSOLUTE/PATH/TO/c-notify/c-notify.py hook --tool codex --event session-start",
+            "command": "python3 /ABSOLUTE/PATH/TO/c-notify/c-notify.py hook --tool codex",
             "timeout": 10,
             "statusMessage": "Playing c-notify session-start sound"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 /ABSOLUTE/PATH/TO/c-notify/c-notify.py hook --tool codex",
+            "timeout": 10,
+            "statusMessage": "Playing c-notify task-acknowledge sound"
           }
         ]
       }

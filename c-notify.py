@@ -52,6 +52,10 @@ EVENT_DOCS: dict[str, dict[str, dict[str, str]]] = {
             "en": "Mapped from the experimental Codex SessionStart hook. Codex notify still does not emit session-start.",
             "zh": "映射自实验性的 Codex SessionStart hook。Codex notify 仍不会发出 session-start。",
         },
+        "task-acknowledge": {
+            "en": "Mapped from the experimental Codex UserPromptSubmit hook.",
+            "zh": "映射自实验性的 Codex UserPromptSubmit hook。",
+        },
         "task-complete": {
             "en": "Default completion category for normal agent-turn-complete results.",
             "zh": "普通 agent-turn-complete 结果的默认完成类别。",
@@ -118,6 +122,10 @@ CLAUDE_CATEGORIES = set(EVENT_DOCS["claude"].keys())
 
 CODEX_ALIAS_MAP = {
     "agent-turn-complete": "agent-turn-complete",
+    "task-acknowledge": "task-acknowledge",
+    "acknowledge": "task-acknowledge",
+    "user-prompt-submit": "task-acknowledge",
+    "userpromptsubmit": "task-acknowledge",
     "task-complete": "task-complete",
     "complete": "task-complete",
     "done": "task-complete",
@@ -484,7 +492,7 @@ def resolve_codex_events(raw_payload_text: str, event_override: str) -> tuple[st
     payload_event = ""
 
     if isinstance(payload, dict):
-        payload_event = str(payload.get("type") or payload.get("event") or "")
+        payload_event = str(payload.get("hook_event_name") or payload.get("type") or payload.get("event") or "")
 
     raw_event = event_override or payload_event
     normalized = _normalize_codex_event(raw_event)
@@ -494,8 +502,6 @@ def resolve_codex_events(raw_payload_text: str, event_override: str) -> tuple[st
     if normalized in CODEX_CATEGORIES:
         candidates.extend(_with_compact_fallback(normalized))
     elif normalized == "agent-turn-complete" or payload_is_turn_complete:
-        candidates.append("task-complete")
-    elif not normalized:
         candidates.append("task-complete")
 
     candidates = _dedupe_keep_order(candidates)

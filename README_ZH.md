@@ -14,7 +14,7 @@ English documentation: [README.md](README.md)
 - 便携总开关：`on / off / toggle / status`
 - 支持 macOS / Linux 播放后端
 - 自动初始化事件目录与中英双语 `README.md`
-- 支持 Codex `0.114.0+` 的实验性 `SessionStart` hook
+- 支持 Codex `0.114.0+` 的实验性 `SessionStart` 与 `UserPromptSubmit` hooks
 - Codex 路由是确定性的：`agent-turn-complete` 直接映射到 `task-complete`
 
 ## 快速开始
@@ -54,6 +54,7 @@ chmod +x install.sh
 
 核心类别（Codex）：
 
+- `~/.c-notify/sounds/codex/task-acknowledge/`（来自 Codex 实验性 `UserPromptSubmit`）
 - `~/.c-notify/sounds/codex/task-complete/`
 - `~/.c-notify/sounds/codex/permission-needed/`
 - `~/.c-notify/sounds/codex/task-error/`
@@ -86,7 +87,7 @@ notify = ["python3", "/ABSOLUTE/PATH/TO/c-notify/c-notify.py", "hook", "--tool",
 codex_hooks = true
 ```
 
-`hooks.json` 只接入 `SessionStart`：
+`hooks.json` 接入 `SessionStart` 与 `UserPromptSubmit`：
 
 ```json
 {
@@ -96,9 +97,21 @@ codex_hooks = true
         "hooks": [
           {
             "type": "command",
-            "command": "python3 /ABSOLUTE/PATH/TO/c-notify/c-notify.py hook --tool codex --event session-start",
+            "command": "python3 /ABSOLUTE/PATH/TO/c-notify/c-notify.py hook --tool codex",
             "timeout": 10,
             "statusMessage": "Playing c-notify session-start sound"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 /ABSOLUTE/PATH/TO/c-notify/c-notify.py hook --tool codex",
+            "timeout": 10,
+            "statusMessage": "Playing c-notify task-acknowledge sound"
           }
         ]
       }
@@ -111,7 +124,8 @@ codex_hooks = true
 
 - Codex `notify` 在当前正常链路下主要是 `agent-turn-complete`。
 - Codex 不做消息语义推断；`agent-turn-complete` 总是路由到 `task-complete`。
-- Codex 实验性 hooks 当前只用于 `SessionStart`。
+- Codex 实验性 hooks 当前用于 `SessionStart` 与 `UserPromptSubmit`。
+- `UserPromptSubmit` 会映射到 `task-acknowledge`。
 - `Stop` 不写入 `hooks.json`；完成音效已经由 `notify` 负责，再接 `Stop` 会重复播放。
 - Codex 的 `permission-needed` / `task-error` / `resource-limit` / `context-compact` 当前仍属于显式/手动类别，除非未来 Codex 原生发出对应事件。
 - 示例文件见 [`examples/codex-config.toml`](examples/codex-config.toml) 与 [`examples/codex-hooks.json`](examples/codex-hooks.json)。
@@ -175,6 +189,7 @@ codex_hooks = true
 ./c-notify status
 ./c-notify events --tool claude
 ./c-notify play --tool claude --event task-complete
+./c-notify play --tool codex --event task-acknowledge
 ./c-notify hook --tool codex --event session-start --debug
 ./c-notify hook --tool codex --debug
 ./c-notify hook --tool claude --debug

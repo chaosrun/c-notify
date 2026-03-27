@@ -234,8 +234,7 @@ from pathlib import Path
 
 hooks_path = Path(sys.argv[1])
 script_path = Path(sys.argv[2])
-cmd = f"python3 {script_path} hook --tool codex --event session-start"
-status_message = "Playing c-notify session-start sound"
+cmd = f"python3 {script_path} hook --tool codex"
 
 try:
     settings = json.loads(hooks_path.read_text(encoding="utf-8"))
@@ -249,9 +248,12 @@ if not isinstance(hooks, dict):
     hooks = {}
     settings["hooks"] = hooks
 
-events = ["SessionStart"]
+events = {
+    "SessionStart": "Playing c-notify session-start sound",
+    "UserPromptSubmit": "Playing c-notify task-acknowledge sound",
+}
 
-def make_entry():
+def make_entry(status_message: str):
     return {
         "hooks": [
             {
@@ -297,11 +299,11 @@ for event_name in list(hooks.keys()):
     else:
         del hooks[event_name]
 
-for event_name in events:
+for event_name, status_message in events.items():
     event_hooks = hooks.get(event_name, [])
     if not isinstance(event_hooks, list):
         event_hooks = []
-    event_hooks.append(make_entry())
+    event_hooks.append(make_entry(status_message))
     hooks[event_name] = event_hooks
 
 settings["hooks"] = hooks

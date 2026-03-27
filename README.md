@@ -14,7 +14,7 @@ Audio files are user-provided. The repository does not bundle sound assets.
 - Global portable switch: `on / off / toggle / status`
 - Linux/macOS playback backend support
 - Event folder bootstrap with bilingual `README.md` per folder
-- Experimental Codex `SessionStart` hook support on Codex `0.114.0+`
+- Experimental Codex `SessionStart` and `UserPromptSubmit` hook support on Codex `0.114.0+`
 - Deterministic Codex routing: `agent-turn-complete` maps directly to `task-complete`
 
 ## Quick Start
@@ -54,6 +54,7 @@ Useful flags:
 
 Core categories (Codex):
 
+- `~/.c-notify/sounds/codex/task-acknowledge/` (from Codex experimental `UserPromptSubmit`)
 - `~/.c-notify/sounds/codex/task-complete/`
 - `~/.c-notify/sounds/codex/permission-needed/`
 - `~/.c-notify/sounds/codex/task-error/`
@@ -86,7 +87,7 @@ notify = ["python3", "/ABSOLUTE/PATH/TO/c-notify/c-notify.py", "hook", "--tool",
 codex_hooks = true
 ```
 
-`hooks.json` wires only `SessionStart` into `c-notify`:
+`hooks.json` wires `SessionStart` and `UserPromptSubmit` into `c-notify`:
 
 ```json
 {
@@ -96,9 +97,21 @@ codex_hooks = true
         "hooks": [
           {
             "type": "command",
-            "command": "python3 /ABSOLUTE/PATH/TO/c-notify/c-notify.py hook --tool codex --event session-start",
+            "command": "python3 /ABSOLUTE/PATH/TO/c-notify/c-notify.py hook --tool codex",
             "timeout": 10,
             "statusMessage": "Playing c-notify session-start sound"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 /ABSOLUTE/PATH/TO/c-notify/c-notify.py hook --tool codex",
+            "timeout": 10,
+            "statusMessage": "Playing c-notify task-acknowledge sound"
           }
         ]
       }
@@ -111,7 +124,8 @@ Notes:
 
 - Codex `notify` currently sends `agent-turn-complete` payloads in normal operation.
 - Codex does not use message-semantic inference; `agent-turn-complete` always routes to `task-complete`.
-- Codex experimental hooks are used only for `SessionStart`.
+- Codex experimental hooks are currently used for `SessionStart` and `UserPromptSubmit`.
+- `UserPromptSubmit` maps to `task-acknowledge`.
 - `Stop` is intentionally not registered in `hooks.json`; completion already comes from `notify`, so wiring both would duplicate playback.
 - Codex `permission-needed` / `task-error` / `resource-limit` / `context-compact` remain explicit/manual categories unless Codex emits native events for them later.
 - Example files are included in [`examples/codex-config.toml`](examples/codex-config.toml) and [`examples/codex-hooks.json`](examples/codex-hooks.json).
@@ -175,6 +189,7 @@ List current known events:
 ./c-notify status
 ./c-notify events --tool claude
 ./c-notify play --tool claude --event task-complete
+./c-notify play --tool codex --event task-acknowledge
 ./c-notify hook --tool codex --event session-start --debug
 ./c-notify hook --tool codex --debug
 ./c-notify hook --tool claude --debug
