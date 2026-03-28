@@ -489,8 +489,7 @@ def _with_compact_fallback(category: str) -> list[str]:
     return [category]
 
 
-def resolve_codex_events(raw_payload_text: str, event_override: str) -> tuple[str, list[str]]:
-    payload = _parse_payload(raw_payload_text)
+def resolve_codex_events(payload: Any, event_override: str) -> tuple[str, list[str]]:
     payload_event = ""
 
     if isinstance(payload, dict):
@@ -569,8 +568,7 @@ def _normalize_claude_event(raw_event: str) -> str:
     return table.get(key, _slug(raw_event))
 
 
-def resolve_claude_events(raw_payload_text: str, event_override: str) -> tuple[str, list[str]]:
-    payload = _parse_payload(raw_payload_text)
+def resolve_claude_events(payload: Any, event_override: str) -> tuple[str, list[str]]:
     payload_event = ""
 
     if isinstance(payload, dict):
@@ -698,9 +696,9 @@ def cmd_hook(tool: str, event_override: str, payload_arg: str | None, extra: lis
     payload_text = _resolve_payload_text(payload_arg, extra)
     payload = _parse_payload(payload_text)
     if tool == "codex":
-        normalized, candidates = resolve_codex_events(payload_text, event_override)
+        normalized, candidates = resolve_codex_events(payload, event_override)
     else:
-        normalized, candidates = resolve_claude_events(payload_text, event_override)
+        normalized, candidates = resolve_claude_events(payload, event_override)
 
     with state_lock():
         state = load_state()
