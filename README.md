@@ -5,7 +5,7 @@ It plays a random audio file from `~/.c-notify/sounds/<tool>/<event>/` when hook
 
 Audio files are user-provided. The repository does not bundle sound assets.
 
-简体中文文档: [README_ZH.md](README_ZH.md)
+简体中文文档： [README_ZH.md](README_ZH.md)
 
 ## Features
 
@@ -15,6 +15,7 @@ Audio files are user-provided. The repository does not bundle sound assets.
 - Linux/macOS playback backend support
 - Event folder bootstrap with bilingual `README.md` per folder
 - Experimental Codex `SessionStart` and `UserPromptSubmit` hook support on Codex `0.114.0+`
+- Optional remote relay mode for VS Code Remote SSH and other SSH-based remote workflows
 - Deterministic Codex routing: `agent-turn-complete` maps directly to `task-complete`
 
 ## Quick Start
@@ -50,6 +51,8 @@ Useful flags:
 ./install.sh --no-claude
 ./install.sh --no-path
 ./install.sh --bin-dir=/custom/bin
+./install.sh --remote-endpoint=http://127.0.0.1:38765
+./install.sh --remote-endpoint=http://127.0.0.1:38765 --remote-token=secret-token
 ```
 
 Core categories (Codex):
@@ -168,6 +171,50 @@ Use one command entry for all events:
 
 `Notification` is intentionally not registered; `PermissionRequest` is the only permission trigger.
 
+## Remote SSH
+
+Remote mode is optional. If you do nothing, `c-notify` keeps working exactly as a local-only tool.
+
+Use remote mode when Codex or Claude runs on a remote machine but you want the sound to play on your local machine.
+
+1. On your local machine, start the receiver:
+
+```bash
+c-notify serve --listen 127.0.0.1 --port 38765
+```
+
+2. Add an SSH reverse tunnel on your local machine for that remote host:
+
+```sshconfig
+Host my-remote
+    HostName your.remote.host
+    User your_user
+    RemoteForward 127.0.0.1:38765 127.0.0.1:38765
+```
+
+3. On the remote machine, install relay-based hooks instead of local playback hooks:
+
+```bash
+./install.sh --remote-endpoint=http://127.0.0.1:38765
+```
+
+4. Optional: protect the receiver with a token on both sides:
+
+```bash
+# local machine
+c-notify serve --listen 127.0.0.1 --port 38765 --token secret-token
+
+# remote machine
+./install.sh --remote-endpoint=http://127.0.0.1:38765 --remote-token=secret-token
+```
+
+Notes:
+
+- `install.sh` only switches to relay mode when you explicitly pass `--remote-endpoint`.
+- Local installs remain direct-playback installs.
+- The receiver exposes `GET /healthz` and accepts `POST /hook/codex` and `POST /hook/claude`.
+- Remote examples are included in [`examples/codex-config-remote.toml`](examples/codex-config-remote.toml), [`examples/codex-hooks-remote.json`](examples/codex-hooks-remote.json), and [`examples/claude-hooks-remote.json`](examples/claude-hooks-remote.json).
+
 ## Event Coverage
 
 List current known events:
@@ -194,6 +241,8 @@ List current known events:
 ./c-notify hook --tool codex --event session-start --debug
 ./c-notify hook --tool codex --debug
 ./c-notify hook --tool claude --debug
+./c-notify serve --listen 127.0.0.1 --port 38765
+./c-notify relay --tool codex --endpoint http://127.0.0.1:38765 --debug
 ```
 
 ## Config
@@ -206,6 +255,8 @@ Optional override:
 
 - `C_NOTIFY_HOME=/custom/path` to relocate config/state/sounds root.
 - `C_NOTIFY_INSTALL_HOME=/custom/home` to relocate install targets used by `install.sh`.
+- `C_NOTIFY_REMOTE_ENDPOINT=http://127.0.0.1:38765` to default `relay` and remote install wiring to one receiver.
+- `C_NOTIFY_REMOTE_TOKEN=secret-token` to reuse the same token for `serve`, `relay`, and remote install wiring.
 
 Important keys:
 

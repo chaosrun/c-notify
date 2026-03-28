@@ -15,6 +15,7 @@ English documentation: [README.md](README.md)
 - 支持 macOS / Linux 播放后端
 - 自动初始化事件目录与中英双语 `README.md`
 - 支持 Codex `0.114.0+` 的实验性 `SessionStart` 与 `UserPromptSubmit` hooks
+- 支持可选的 remote relay 模式，适用于 VS Code Remote SSH 等远程开发场景
 - Codex 路由是确定性的：`agent-turn-complete` 直接映射到 `task-complete`
 
 ## 快速开始
@@ -50,6 +51,8 @@ chmod +x install.sh
 ./install.sh --no-claude
 ./install.sh --no-path
 ./install.sh --bin-dir=/custom/bin
+./install.sh --remote-endpoint=http://127.0.0.1:38765
+./install.sh --remote-endpoint=http://127.0.0.1:38765 --remote-token=secret-token
 ```
 
 核心类别（Codex）：
@@ -168,6 +171,50 @@ codex_hooks = true
 
 `Notification` 不再注册；权限提示只由 `PermissionRequest` 触发。
 
+## Remote SSH
+
+remote 模式是可选能力。不做任何额外配置时，`c-notify` 仍然只是本机播放工具，现有行为不变。
+
+当 Codex 或 Claude 跑在远端机器上、但你希望声音在本机响起时，可使用 remote 模式。
+
+1. 在本机启动接收服务：
+
+```bash
+c-notify serve --listen 127.0.0.1 --port 38765
+```
+
+2. 在本机的 SSH 配置里，为该远端主机加反向转发：
+
+```sshconfig
+Host my-remote
+    HostName your.remote.host
+    User your_user
+    RemoteForward 127.0.0.1:38765 127.0.0.1:38765
+```
+
+3. 在远端机器上安装 relay 版 hooks，而不是本地直接播放版：
+
+```bash
+./install.sh --remote-endpoint=http://127.0.0.1:38765
+```
+
+4. 可选：在两端都加 token 保护：
+
+```bash
+# 本机
+c-notify serve --listen 127.0.0.1 --port 38765 --token secret-token
+
+# 远端
+./install.sh --remote-endpoint=http://127.0.0.1:38765 --remote-token=secret-token
+```
+
+说明：
+
+- 只有显式传入 `--remote-endpoint` 时，`install.sh` 才会切换成 relay 模式。
+- 本机安装默认仍然是直接播放模式。
+- 接收服务提供 `GET /healthz`，并接收 `POST /hook/codex` 与 `POST /hook/claude`。
+- remote 示例文件见 [`examples/codex-config-remote.toml`](examples/codex-config-remote.toml)、[`examples/codex-hooks-remote.json`](examples/codex-hooks-remote.json)、[`examples/claude-hooks-remote.json`](examples/claude-hooks-remote.json)。
+
 ## 事件覆盖范围
 
 查看当前内置事件：
@@ -194,6 +241,8 @@ codex_hooks = true
 ./c-notify hook --tool codex --event session-start --debug
 ./c-notify hook --tool codex --debug
 ./c-notify hook --tool claude --debug
+./c-notify serve --listen 127.0.0.1 --port 38765
+./c-notify relay --tool codex --endpoint http://127.0.0.1:38765 --debug
 ```
 
 ## 配置文件
@@ -206,6 +255,8 @@ codex_hooks = true
 
 - 使用 `C_NOTIFY_HOME=/custom/path` 可整体迁移 config/state/sounds 根目录。
 - 使用 `C_NOTIFY_INSTALL_HOME=/custom/home` 可覆盖 `install.sh` 的安装目标根目录。
+- 使用 `C_NOTIFY_REMOTE_ENDPOINT=http://127.0.0.1:38765` 可为 `relay` 与 remote 安装提供默认接收地址。
+- 使用 `C_NOTIFY_REMOTE_TOKEN=secret-token` 可让 `serve`、`relay` 与 remote 安装复用同一个 token。
 
 主要字段：
 

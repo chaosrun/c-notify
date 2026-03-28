@@ -6,6 +6,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 NO_CODEX=false
 NO_CLAUDE=false
 NO_PATH=false
+REMOTE_ENDPOINT="${C_NOTIFY_REMOTE_ENDPOINT:-}"
+REMOTE_TOKEN="${C_NOTIFY_REMOTE_TOKEN:-}"
 
 HOME_DIR="${C_NOTIFY_INSTALL_HOME:-$HOME}"
 BIN_DIR="${C_NOTIFY_BIN_DIR:-$HOME_DIR/.local/bin}"
@@ -21,6 +23,8 @@ Options:
   --no-codex     Skip writing ~/.codex/config.toml and ~/.codex/hooks.json
   --no-claude    Skip writing ~/.claude/settings.json
   --no-path      Skip PATH export block in shell rc file
+  --remote-endpoint=URL  Install relay-based hooks that POST to the local receiver URL
+  --remote-token=TOKEN   Shared token used by relay/serve in remote mode
   --bin-dir=DIR  Install c-notify symlink to DIR
   -h, --help     Show help
 
@@ -30,6 +34,8 @@ Environment overrides:
   C_NOTIFY_CODEX_CONFIG
   C_NOTIFY_CODEX_HOOKS
   C_NOTIFY_CLAUDE_SETTINGS
+  C_NOTIFY_REMOTE_ENDPOINT
+  C_NOTIFY_REMOTE_TOKEN
   C_NOTIFY_RC_FILE
   C_NOTIFY_HOME
 EOF
@@ -45,6 +51,12 @@ for arg in "$@"; do
       ;;
     --no-path)
       NO_PATH=true
+      ;;
+    --remote-endpoint=*)
+      REMOTE_ENDPOINT="${arg#*=}"
+      ;;
+    --remote-token=*)
+      REMOTE_TOKEN="${arg#*=}"
       ;;
     --bin-dir=*)
       BIN_DIR="${arg#*=}"
@@ -141,7 +153,7 @@ update_codex_config() {
   mkdir -p "$(dirname "$CODEX_CONFIG_FILE")"
   touch "$CODEX_CONFIG_FILE"
 
-  python3 - <<'PY' "$CODEX_CONFIG_FILE" "$SCRIPT_DIR/c-notify.py"
+  python3 - <<'PY' "$CODEX_CONFIG_FILE" "$SCRIPT_DIR/c-notify.py" "$REMOTE_ENDPOINT" "$REMOTE_TOKEN"
 import json
 import re
 import sys
@@ -149,13 +161,23 @@ from pathlib import Path
 
 config_path = Path(sys.argv[1])
 script_path = Path(sys.argv[2])
+relay_endpoint = sys.argv[3]
+relay_token = sys.argv[4]
 
 text = config_path.read_text(encoding="utf-8") if config_path.exists() else ""
 if text and not text.endswith("\n"):
     text += "\n"
 lines = text.splitlines()
 
-notify_line = "notify = " + json.dumps(["python3", str(script_path), "hook", "--tool", "codex"])
+notify_cmd = ["python3", str(script_path)]
+if relay_endpoint:
+    notify_cmd.extend(["relay", "--tool", "codex", "--endpoint", relay_endpoint])
+    if relay_token:
+        notify_cmd.extend(["--token", relay_token])
+else:
+    notify_cmd.extend(["hook", "--tool", "codex"])
+
+notify_line = "notify = " + json.dumps(notify_cmd)
 codex_hooks_line = "codex_hooks = true"
 
 def is_table_header(line: str) -> bool:
@@ -227,14 +249,25 @@ update_codex_hooks() {
   mkdir -p "$(dirname "$CODEX_HOOKS_FILE")"
   [ -f "$CODEX_HOOKS_FILE" ] || echo '{}' > "$CODEX_HOOKS_FILE"
 
-  python3 - <<'PY' "$CODEX_HOOKS_FILE" "$SCRIPT_DIR/c-notify.py"
+  python3 - <<'PY' "$CODEX_HOOKS_FILE" "$SCRIPT_DIR/c-notify.py" "$REMOTE_ENDPOINT" "$REMOTE_TOKEN"
 import json
+import shlex
 import sys
 from pathlib import Path
 
 hooks_path = Path(sys.argv[1])
 script_path = Path(sys.argv[2])
-cmd = f"python3 {script_path} hook --tool codex"
+relay_endpoint = sys.argv[3]
+relay_token = sys.argv[4]
+
+cmd_parts = ["python3", str(script_path)]
+if relay_endpoint:
+    cmd_parts.extend(["relay", "--tool", "codex", "--endpoint", relay_endpoint])
+    if relay_token:
+        cmd_parts.extend(["--token", relay_token])
+else:
+    cmd_parts.extend(["hook", "--tool", "codex"])
+cmd = shlex.join(cmd_parts)
 
 try:
     settings = json.loads(hooks_path.read_text(encoding="utf-8"))
@@ -267,7 +300,7 @@ def make_entry(status_message: str):
 
 def is_c_notify_command(command: str) -> bool:
     normalized = " ".join(str(command).lower().split())
-    return "c-notify" in normalized and "hook --tool codex" in normalized
+    return "c-notify" in normalized and "--tool codex" in normalized and ("hook" in normalized or "relay" in normalized)
 
 def is_c_notify_entry(entry):
     if not isinstance(entry, dict):
@@ -315,14 +348,25 @@ update_claude_settings() {
   mkdir -p "$(dirname "$CLAUDE_SETTINGS_FILE")"
   [ -f "$CLAUDE_SETTINGS_FILE" ] || echo '{}' > "$CLAUDE_SETTINGS_FILE"
 
-  python3 - <<'PY' "$CLAUDE_SETTINGS_FILE" "$SCRIPT_DIR/c-notify.py"
+  python3 - <<'PY' "$CLAUDE_SETTINGS_FILE" "$SCRIPT_DIR/c-notify.py" "$REMOTE_ENDPOINT" "$REMOTE_TOKEN"
 import json
+import shlex
 import sys
 from pathlib import Path
 
 settings_path = Path(sys.argv[1])
 script_path = Path(sys.argv[2])
-cmd = f"python3 {script_path} hook --tool claude"
+relay_endpoint = sys.argv[3]
+relay_token = sys.argv[4]
+
+cmd_parts = ["python3", str(script_path)]
+if relay_endpoint:
+    cmd_parts.extend(["relay", "--tool", "claude", "--endpoint", relay_endpoint])
+    if relay_token:
+        cmd_parts.extend(["--token", relay_token])
+else:
+    cmd_parts.extend(["hook", "--tool", "claude"])
+cmd = shlex.join(cmd_parts)
 
 try:
     settings = json.loads(settings_path.read_text(encoding="utf-8"))
@@ -359,7 +403,7 @@ def make_hook(async_mode: bool):
 
 def is_c_notify_command(command: str) -> bool:
     normalized = " ".join(str(command).lower().split())
-    return "c-notify" in normalized and "hook --tool claude" in normalized
+    return "c-notify" in normalized and "--tool claude" in normalized and ("hook" in normalized or "relay" in normalized)
 
 def is_c_notify_entry(entry):
     if not isinstance(entry, dict):
@@ -432,6 +476,7 @@ echo "Shell rc: $RC_FILE"
 [ "$NO_CODEX" = false ] && echo "Codex config updated: $CODEX_CONFIG_FILE"
 [ "$NO_CODEX" = false ] && echo "Codex hooks updated: $CODEX_HOOKS_FILE"
 [ "$NO_CLAUDE" = false ] && echo "Claude settings updated: $CLAUDE_SETTINGS_FILE"
+[ -n "$REMOTE_ENDPOINT" ] && echo "Remote relay endpoint: $REMOTE_ENDPOINT"
 echo ""
 echo "Next:"
 echo "  source \"$RC_FILE\""

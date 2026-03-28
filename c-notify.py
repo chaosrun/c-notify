@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import http.server
 import json
 import os
 import platform
@@ -13,6 +14,9 @@ import shutil
 import subprocess
 import sys
 import time
+import urllib.error
+import urllib.parse
+import urllib.request
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
@@ -29,6 +33,9 @@ STATE_PATH = APP_DIR / "state.json"
 LOCK_PATH = APP_DIR / ".state.lock"
 DEFAULT_SOUND_ROOT = APP_DIR / "sounds"
 CODEX_SESSION_START_SUPPRESS_SECONDS = 15.0
+REMOTE_DEFAULT_HOST = "127.0.0.1"
+REMOTE_DEFAULT_PORT = 38765
+REMOTE_DEFAULT_TIMEOUT = 3.0
 
 DEFAULT_CONFIG: dict[str, Any] = {
     "enabled": True,
@@ -687,14 +694,23 @@ def cmd_play(tool: str, event_name: str) -> int:
     return 0
 
 
-def cmd_hook(tool: str, event_override: str, payload_arg: str | None, extra: list[str], debug: bool) -> int:
+def _run_hook(tool: str, event_override: str, payload_text: str) -> dict[str, Any]:
     config = load_config()
     strict_exit = bool(config.get("hook_strict_exit", False))
-    if not bool(config.get("enabled", True)):
-        return 0
-
-    payload_text = _resolve_payload_text(payload_arg, extra)
     payload = _parse_payload(payload_text)
+
+    if not bool(config.get("enabled", True)):
+        return {
+            "tool": tool,
+            "normalized_event": "unknown",
+            "candidates": [],
+            "played_event": None,
+            "played_file": "",
+            "outcome": "disabled",
+            "strict_exit": strict_exit,
+            "exit_code": 0,
+        }
+
     if tool == "codex":
         normalized, candidates = resolve_codex_events(payload, event_override)
     else:
@@ -717,22 +733,157 @@ def cmd_hook(tool: str, event_override: str, payload_arg: str | None, extra: lis
         outcome = "unmapped"
         exit_code = 2 if strict_exit else 0
 
-    if debug:
-        print(json.dumps(
-            {
-                "tool": tool,
-                "normalized_event": normalized,
-                "candidates": candidates,
-                "played_event": used_event,
-                "played_file": str(sound_path) if sound_path else "",
-                "outcome": outcome,
-                "strict_exit": strict_exit,
-                "exit_code": exit_code,
-            },
-            indent=2,
-        ))
+    return {
+        "tool": tool,
+        "normalized_event": normalized,
+        "candidates": candidates,
+        "played_event": used_event,
+        "played_file": str(sound_path) if sound_path else "",
+        "outcome": outcome,
+        "strict_exit": strict_exit,
+        "exit_code": exit_code,
+    }
 
-    return exit_code
+
+def cmd_hook(tool: str, event_override: str, payload_arg: str | None, extra: list[str], debug: bool) -> int:
+    payload_text = _resolve_payload_text(payload_arg, extra)
+    result = _run_hook(tool, event_override, payload_text)
+    if debug:
+        print(json.dumps(result, indent=2))
+    return int(result["exit_code"])
+
+
+def _remote_hook_url(endpoint: str, tool: str) -> str:
+    parsed = urllib.parse.urlsplit(endpoint)
+    path = parsed.path.rstrip("/")
+    if path.endswith(f"/hook/{tool}"):
+        final_path = path
+    elif path.endswith("/hook"):
+        final_path = f"{path}/{tool}"
+    else:
+        final_path = f"{path}/hook/{tool}" if path else f"/hook/{tool}"
+    return urllib.parse.urlunsplit((parsed.scheme or "http", parsed.netloc, final_path, parsed.query, parsed.fragment))
+
+
+def cmd_relay(
+    tool: str,
+    endpoint: str,
+    token: str,
+    event_override: str,
+    payload_arg: str | None,
+    extra: list[str],
+    timeout_seconds: float,
+    debug: bool,
+) -> int:
+    payload_text = _resolve_payload_text(payload_arg, extra)
+    if not endpoint:
+        print("c-notify relay: missing --endpoint or C_NOTIFY_REMOTE_ENDPOINT", file=sys.stderr)
+        return 2
+
+    url = _remote_hook_url(endpoint, tool)
+    envelope = {
+        "tool": tool,
+        "event_override": event_override,
+        "payload_text": payload_text,
+        "sent_at": time.time(),
+    }
+    body = json.dumps(envelope).encode("utf-8")
+    headers = {
+        "Content-Type": "application/json",
+        "User-Agent": "c-notify-relay/1",
+    }
+    if token:
+        headers["X-C-Notify-Token"] = token
+
+    request = urllib.request.Request(url, data=body, headers=headers, method="POST")
+    try:
+        with urllib.request.urlopen(request, timeout=timeout_seconds) as response:
+            response_body = response.read().decode("utf-8", errors="replace")
+    except urllib.error.HTTPError as exc:
+        message = exc.read().decode("utf-8", errors="replace")
+        if debug:
+            print(message or str(exc), file=sys.stderr)
+        return 0
+    except urllib.error.URLError as exc:
+        if debug:
+            print(f"c-notify relay: {exc}", file=sys.stderr)
+        return 0
+
+    try:
+        result = json.loads(response_body) if response_body else {}
+    except json.JSONDecodeError:
+        result = {"raw_response": response_body}
+
+    if debug:
+        print(json.dumps(result, indent=2))
+    if isinstance(result, dict):
+        try:
+            return int(result.get("exit_code", 0))
+        except (TypeError, ValueError):
+            return 0
+    return 0
+
+
+def cmd_serve(listen: str, port: int, token: str) -> int:
+    class RequestHandler(http.server.BaseHTTPRequestHandler):
+        server_version = "c-notify/1"
+
+        def log_message(self, format: str, *args: Any) -> None:
+            return
+
+        def _send_json(self, status_code: int, payload: dict[str, Any]) -> None:
+            body = json.dumps(payload).encode("utf-8")
+            self.send_response(status_code)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+        def do_GET(self) -> None:  # noqa: N802
+            if self.path.rstrip("/") == "/healthz":
+                self._send_json(200, {"status": "ok"})
+                return
+            self._send_json(404, {"error": "not-found"})
+
+        def do_POST(self) -> None:  # noqa: N802
+            parts = self.path.rstrip("/").split("/")
+            if len(parts) < 3 or parts[-2] != "hook" or parts[-1] not in {"codex", "claude"}:
+                self._send_json(404, {"error": "not-found"})
+                return
+
+            if token and self.headers.get("X-C-Notify-Token", "") != token:
+                self._send_json(403, {"error": "forbidden"})
+                return
+
+            content_length = int(self.headers.get("Content-Length", "0") or "0")
+            raw_body = self.rfile.read(content_length).decode("utf-8", errors="replace")
+            tool = parts[-1]
+            try:
+                data = json.loads(raw_body) if raw_body else {}
+            except json.JSONDecodeError:
+                self._send_json(400, {"error": "invalid-json"})
+                return
+
+            event_override = ""
+            payload_text = raw_body
+            if isinstance(data, dict) and ("payload_text" in data or "event_override" in data):
+                payload_text = str(data.get("payload_text", ""))
+                event_override = str(data.get("event_override", ""))
+
+            result = _run_hook(tool, event_override, payload_text)
+            self._send_json(200, result)
+
+    server = http.server.ThreadingHTTPServer((listen, port), RequestHandler)
+    print(f"c-notify: serving on http://{listen}:{port}")
+    if token:
+        print("c-notify: token auth enabled")
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        print("\nc-notify: server stopped")
+    finally:
+        server.server_close()
+    return 0
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -756,6 +907,21 @@ def build_parser() -> argparse.ArgumentParser:
     hook_parser.add_argument("--payload", help="Optional explicit payload JSON/string")
     hook_parser.add_argument("--debug", action="store_true", help="Print resolution details")
     hook_parser.add_argument("extra", nargs="*", help="Extra args; first token is treated as payload when --payload is absent")
+
+    relay_parser = sub.add_parser("relay", help="Forward hook payloads to a local c-notify server")
+    relay_parser.add_argument("--tool", required=True, choices=["codex", "claude"], help="Event source tool")
+    relay_parser.add_argument("--endpoint", default=os.environ.get("C_NOTIFY_REMOTE_ENDPOINT", ""), help="Receiver base URL, for example http://127.0.0.1:38765")
+    relay_parser.add_argument("--token", default=os.environ.get("C_NOTIFY_REMOTE_TOKEN", ""), help="Optional shared secret token")
+    relay_parser.add_argument("--event", default="", help="Optional explicit event name")
+    relay_parser.add_argument("--payload", help="Optional explicit payload JSON/string")
+    relay_parser.add_argument("--timeout", type=float, default=REMOTE_DEFAULT_TIMEOUT, help="HTTP timeout in seconds")
+    relay_parser.add_argument("--debug", action="store_true", help="Print relay response details")
+    relay_parser.add_argument("extra", nargs="*", help="Extra args; first token is treated as payload when --payload is absent")
+
+    serve_parser = sub.add_parser("serve", help="Run a local HTTP receiver for remote relays")
+    serve_parser.add_argument("--listen", default=os.environ.get("C_NOTIFY_REMOTE_LISTEN", REMOTE_DEFAULT_HOST), help="Listen address")
+    serve_parser.add_argument("--port", type=int, default=int(os.environ.get("C_NOTIFY_REMOTE_PORT", str(REMOTE_DEFAULT_PORT))), help="Listen port")
+    serve_parser.add_argument("--token", default=os.environ.get("C_NOTIFY_REMOTE_TOKEN", ""), help="Optional shared secret token")
 
     play_parser = sub.add_parser("play", help="Manually play one event folder")
     play_parser.add_argument("--tool", required=True, choices=["codex", "claude"], help="Tool namespace")
@@ -790,6 +956,19 @@ def main(argv: list[str]) -> int:
             extra=args.extra,
             debug=bool(args.debug),
         )
+    if args.command == "relay":
+        return cmd_relay(
+            tool=args.tool,
+            endpoint=args.endpoint,
+            token=args.token,
+            event_override=args.event,
+            payload_arg=args.payload,
+            extra=args.extra,
+            timeout_seconds=float(args.timeout),
+            debug=bool(args.debug),
+        )
+    if args.command == "serve":
+        return cmd_serve(listen=args.listen, port=int(args.port), token=args.token)
 
     parser.print_help()
     return 1
