@@ -223,8 +223,10 @@ Notes:
 
 Related files:
 
-- Remote hook examples: [`codex-config-remote.toml`](examples/codex-config-remote.toml), [`codex-hooks-remote.json`](examples/codex-hooks-remote.json), [`claude-hooks-remote.json`](examples/claude-hooks-remote.json)
-- Autostart templates: [`examples/systemd/`](examples/systemd/) (Linux), [`examples/launchd/`](examples/launchd/) (macOS)
+| | Hook examples | Autostart (systemd) | Autostart (launchd) |
+|---|---|---|---|
+| Codex | [`codex-config-remote.toml`](examples/codex-config-remote.toml), [`codex-hooks-remote.json`](examples/codex-hooks-remote.json) | [`c-notify-serve.service`](examples/systemd/c-notify-serve.service) | [`com.c-notify.serve.plist`](examples/launchd/com.c-notify.serve.plist) |
+| Claude | [`claude-hooks-remote.json`](examples/claude-hooks-remote.json) | [`c-notify-tunnel.service`](examples/systemd/c-notify-tunnel.service) | [`com.c-notify.tunnel.plist`](examples/launchd/com.c-notify.tunnel.plist) |
 
 ## Commands
 

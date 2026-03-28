@@ -223,8 +223,10 @@ c-notify serve --listen 127.0.0.1 --port 38765 --token secret-token
 
 相关文件：
 
-- Remote hook 示例：[`codex-config-remote.toml`](examples/codex-config-remote.toml)、[`codex-hooks-remote.json`](examples/codex-hooks-remote.json)、[`claude-hooks-remote.json`](examples/claude-hooks-remote.json)
-- 自启动模板：[`examples/systemd/`](examples/systemd/)（Linux）、[`examples/launchd/`](examples/launchd/)（macOS）
+| | Hook 示例 | 自启动 (systemd) | 自启动 (launchd) |
+|---|---|---|---|
+| Codex | [`codex-config-remote.toml`](examples/codex-config-remote.toml), [`codex-hooks-remote.json`](examples/codex-hooks-remote.json) | [`c-notify-serve.service`](examples/systemd/c-notify-serve.service) | [`com.c-notify.serve.plist`](examples/launchd/com.c-notify.serve.plist) |
+| Claude | [`claude-hooks-remote.json`](examples/claude-hooks-remote.json) | [`c-notify-tunnel.service`](examples/systemd/c-notify-tunnel.service) | [`com.c-notify.tunnel.plist`](examples/launchd/com.c-notify.tunnel.plist) |
 
 ## 常用命令
 
