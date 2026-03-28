@@ -5,9 +5,9 @@ It plays a random audio file from `~/.c-notify/sounds/<tool>/<event>/` when hook
 
 Audio files are user-provided. The repository does not bundle sound assets.
 
-Simplified Chinese documentation: [README_ZH.md](README_ZH.md)  
-Remote SSH guide: [docs/VS_CODE_REMOTE_SSH.md](docs/VS_CODE_REMOTE_SSH.md)  
-Remote SSH guide (简体中文): [docs/VS_CODE_REMOTE_SSH_ZH.md](docs/VS_CODE_REMOTE_SSH_ZH.md)
+<p align="center">
+  <a href="README_ZH.md">📖 简体中文说明</a>&nbsp;&nbsp;|&nbsp;&nbsp;<a href="docs/VS_CODE_REMOTE_SSH.md">🔗 Remote SSH Guide</a>
+</p>
 
 ## Features
 

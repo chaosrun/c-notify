@@ -5,9 +5,9 @@
 
 音频文件由用户自行放入，仓库本身不内置音频资产。
 
-English documentation: [README.md](README.md)  
-Remote SSH 专门说明页: [docs/VS_CODE_REMOTE_SSH_ZH.md](docs/VS_CODE_REMOTE_SSH_ZH.md)  
-Remote SSH guide (English): [docs/VS_CODE_REMOTE_SSH.md](docs/VS_CODE_REMOTE_SSH.md)
+<p align="center">
+  <a href="README.md">📖 English</a>&nbsp;&nbsp;|&nbsp;&nbsp;<a href="docs/VS_CODE_REMOTE_SSH_ZH.md">🔗 Remote SSH 说明</a>
+</p>
 
 ## 功能
 
