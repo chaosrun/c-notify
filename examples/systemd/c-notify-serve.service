@@ -1,0 +1,13 @@
+[Unit]
+Description=c-notify local receiver
+After=network.target
+
+[Service]
+Type=simple
+EnvironmentFile=-%h/.config/c-notify/serve.env
+ExecStart=/bin/sh -lc '"$HOME/.local/bin/c-notify" serve --listen 127.0.0.1 --port 38765 ${C_NOTIFY_REMOTE_TOKEN:+--token "$C_NOTIFY_REMOTE_TOKEN"}'
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=default.target

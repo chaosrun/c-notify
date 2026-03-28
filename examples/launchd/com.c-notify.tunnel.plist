@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.c-notify.tunnel</string>
+
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>C_NOTIFY_SSH_TARGET</key>
+    <string>my-remote</string>
+    <key>C_NOTIFY_REMOTE_BIND_ADDRESS</key>
+    <string>127.0.0.1</string>
+    <key>C_NOTIFY_REMOTE_PORT</key>
+    <string>38765</string>
+    <key>C_NOTIFY_LOCAL_PORT</key>
+    <string>38765</string>
+  </dict>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/zsh</string>
+    <string>-lc</string>
+    <string>test -n "$C_NOTIFY_SSH_TARGET" || { echo "C_NOTIFY_SSH_TARGET is required" &gt;&amp;2; exit 1; }; exec ssh -N -o ExitOnForwardFailure=yes -o ServerAliveInterval=30 -o ServerAliveCountMax=3 -R ${C_NOTIFY_REMOTE_BIND_ADDRESS:-127.0.0.1}:${C_NOTIFY_REMOTE_PORT:-38765}:127.0.0.1:${C_NOTIFY_LOCAL_PORT:-38765} "$C_NOTIFY_SSH_TARGET"</string>
+  </array>
+
+  <key>RunAtLoad</key>
+  <true/>
+
+  <key>KeepAlive</key>
+  <true/>
+</dict>
+</plist>

@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.c-notify.serve</string>
+
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>C_NOTIFY_REMOTE_TOKEN</key>
+    <string></string>
+  </dict>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/zsh</string>
+    <string>-lc</string>
+    <string>"$HOME/.local/bin/c-notify" serve --listen 127.0.0.1 --port 38765 ${C_NOTIFY_REMOTE_TOKEN:+--token "$C_NOTIFY_REMOTE_TOKEN"}</string>
+  </array>
+
+  <key>RunAtLoad</key>
+  <true/>
+
+  <key>KeepAlive</key>
+  <true/>
+</dict>
+</plist>

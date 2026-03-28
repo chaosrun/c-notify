@@ -5,7 +5,9 @@ It plays a random audio file from `~/.c-notify/sounds/<tool>/<event>/` when hook
 
 Audio files are user-provided. The repository does not bundle sound assets.
 
-简体中文文档： [README_ZH.md](README_ZH.md)
+Simplified Chinese documentation: [README_ZH.md](README_ZH.md)  
+Remote SSH guide: [docs/VS_CODE_REMOTE_SSH.md](docs/VS_CODE_REMOTE_SSH.md)  
+Remote SSH guide (简体中文): [docs/VS_CODE_REMOTE_SSH_ZH.md](docs/VS_CODE_REMOTE_SSH_ZH.md)
 
 ## Features
 
@@ -214,6 +216,9 @@ Notes:
 - Local installs remain direct-playback installs.
 - The receiver exposes `GET /healthz` and accepts `POST /hook/codex` and `POST /hook/claude`.
 - Remote examples are included in [`examples/codex-config-remote.toml`](examples/codex-config-remote.toml), [`examples/codex-hooks-remote.json`](examples/codex-hooks-remote.json), and [`examples/claude-hooks-remote.json`](examples/claude-hooks-remote.json).
+- Serve autostart templates are included in [`examples/systemd/c-notify-serve.service`](examples/systemd/c-notify-serve.service), [`examples/systemd/serve.env.example`](examples/systemd/serve.env.example), and [`examples/launchd/com.c-notify.serve.plist`](examples/launchd/com.c-notify.serve.plist).
+- Dedicated tunnel templates are included in [`examples/systemd/c-notify-tunnel.service`](examples/systemd/c-notify-tunnel.service), [`examples/systemd/tunnel.env.example`](examples/systemd/tunnel.env.example), and [`examples/launchd/com.c-notify.tunnel.plist`](examples/launchd/com.c-notify.tunnel.plist).
+- See the dedicated guide for full setup details: [`docs/VS_CODE_REMOTE_SSH.md`](docs/VS_CODE_REMOTE_SSH.md).
 
 ## Event Coverage
 

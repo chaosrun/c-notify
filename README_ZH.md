@@ -5,7 +5,9 @@
 
 音频文件由用户自行放入，仓库本身不内置音频资产。
 
-English documentation: [README.md](README.md)
+English documentation: [README.md](README.md)  
+Remote SSH 专门说明页: [docs/VS_CODE_REMOTE_SSH_ZH.md](docs/VS_CODE_REMOTE_SSH_ZH.md)  
+Remote SSH guide (English): [docs/VS_CODE_REMOTE_SSH.md](docs/VS_CODE_REMOTE_SSH.md)
 
 ## 功能
 
@@ -214,6 +216,9 @@ c-notify serve --listen 127.0.0.1 --port 38765 --token secret-token
 - 本机安装默认仍然是直接播放模式。
 - 接收服务提供 `GET /healthz`，并接收 `POST /hook/codex` 与 `POST /hook/claude`。
 - remote 示例文件见 [`examples/codex-config-remote.toml`](examples/codex-config-remote.toml)、[`examples/codex-hooks-remote.json`](examples/codex-hooks-remote.json)、[`examples/claude-hooks-remote.json`](examples/claude-hooks-remote.json)。
+- `serve` 自启动模板见 [`examples/systemd/c-notify-serve.service`](examples/systemd/c-notify-serve.service)、[`examples/systemd/serve.env.example`](examples/systemd/serve.env.example)、[`examples/launchd/com.c-notify.serve.plist`](examples/launchd/com.c-notify.serve.plist)。
+- 专用隧道模板见 [`examples/systemd/c-notify-tunnel.service`](examples/systemd/c-notify-tunnel.service)、[`examples/systemd/tunnel.env.example`](examples/systemd/tunnel.env.example)、[`examples/launchd/com.c-notify.tunnel.plist`](examples/launchd/com.c-notify.tunnel.plist)。
+- 更完整的 remote 配置说明见 [`docs/VS_CODE_REMOTE_SSH_ZH.md`](docs/VS_CODE_REMOTE_SSH_ZH.md)。
 
 ## 事件覆盖范围
 

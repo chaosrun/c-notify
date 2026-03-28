@@ -1,0 +1,14 @@
+[Unit]
+Description=c-notify reverse SSH tunnel
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+EnvironmentFile=-%h/.config/c-notify/tunnel.env
+ExecStart=/bin/sh -lc 'test -n "$C_NOTIFY_SSH_TARGET" || { echo "C_NOTIFY_SSH_TARGET is required" >&2; exit 1; }; exec ssh -N -o ExitOnForwardFailure=yes -o ServerAliveInterval=30 -o ServerAliveCountMax=3 -R ${C_NOTIFY_REMOTE_BIND_ADDRESS:-127.0.0.1}:${C_NOTIFY_REMOTE_PORT:-38765}:127.0.0.1:${C_NOTIFY_LOCAL_PORT:-38765} "$C_NOTIFY_SSH_TARGET"'
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=default.target
