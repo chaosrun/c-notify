@@ -209,12 +209,10 @@ If you listen only on `127.0.0.1` and access it only through SSH reverse tunnels
 
 Prepared templates are included in this repository:
 
-- systemd user service: [`examples/systemd/c-notify-serve.service`](../examples/systemd/c-notify-serve.service)
-- systemd serve env example: [`examples/systemd/serve.env.example`](../examples/systemd/serve.env.example)
-- systemd tunnel service: [`examples/systemd/c-notify-tunnel.service`](../examples/systemd/c-notify-tunnel.service)
-- systemd tunnel env example: [`examples/systemd/tunnel.env.example`](../examples/systemd/tunnel.env.example)
-- launchd plist: [`examples/launchd/com.c-notify.serve.plist`](../examples/launchd/com.c-notify.serve.plist)
-- launchd tunnel plist: [`examples/launchd/com.c-notify.tunnel.plist`](../examples/launchd/com.c-notify.tunnel.plist)
+| | systemd (Linux) | launchd (macOS) |
+|---|---|---|
+| serve | [`c-notify-serve.service`](../examples/systemd/c-notify-serve.service), [`serve.env.example`](../examples/systemd/serve.env.example) | [`com.c-notify.serve.plist`](../examples/launchd/com.c-notify.serve.plist) |
+| tunnel | [`c-notify-tunnel.service`](../examples/systemd/c-notify-tunnel.service), [`tunnel.env.example`](../examples/systemd/tunnel.env.example) | [`com.c-notify.tunnel.plist`](../examples/launchd/com.c-notify.tunnel.plist) |
 
 These files are templates only. They are not installed automatically.
 

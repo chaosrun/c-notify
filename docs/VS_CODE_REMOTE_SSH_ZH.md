@@ -209,12 +209,10 @@ c-notify serve --token secret-token
 
 仓库里已经准备好了模板文件：
 
-- systemd user service：[`examples/systemd/c-notify-serve.service`](../examples/systemd/c-notify-serve.service)
-- systemd serve env 示例：[`examples/systemd/serve.env.example`](../examples/systemd/serve.env.example)
-- systemd tunnel service：[`examples/systemd/c-notify-tunnel.service`](../examples/systemd/c-notify-tunnel.service)
-- systemd tunnel env 示例：[`examples/systemd/tunnel.env.example`](../examples/systemd/tunnel.env.example)
-- launchd plist：[`examples/launchd/com.c-notify.serve.plist`](../examples/launchd/com.c-notify.serve.plist)
-- launchd tunnel plist：[`examples/launchd/com.c-notify.tunnel.plist`](../examples/launchd/com.c-notify.tunnel.plist)
+| | systemd (Linux) | launchd (macOS) |
+|---|---|---|
+| serve | [`c-notify-serve.service`](../examples/systemd/c-notify-serve.service), [`serve.env.example`](../examples/systemd/serve.env.example) | [`com.c-notify.serve.plist`](../examples/launchd/com.c-notify.serve.plist) |
+| tunnel | [`c-notify-tunnel.service`](../examples/systemd/c-notify-tunnel.service), [`tunnel.env.example`](../examples/systemd/tunnel.env.example) | [`com.c-notify.tunnel.plist`](../examples/launchd/com.c-notify.tunnel.plist) |
 
 这些文件只是模板，不会自动安装。
 
