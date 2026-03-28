@@ -11,41 +11,17 @@ The same local machine can serve both:
 - local Codex / Claude sessions via direct `hook`
 - remote Codex / Claude sessions via `relay -> serve`
 
-## Roles
+## Overview
 
-Machine A, local machine:
+| | Local machine (A) | Remote machine (B) |
+|---|---|---|
+| Role | Plays sound, runs `c-notify serve` | Runs Codex / Claude Code |
+| Hooks | Direct playback (`hook`) | Relay mode (`relay`) |
+| Audio files | `~/.c-notify/sounds/` | Not needed |
+| SSH | Initiates connection, owns tunnel | Receives reverse-forwarded port |
 
-- stores the audio files under `~/.c-notify/sounds/`
-- runs `c-notify serve`
-- keeps local Codex / Claude hooks in direct-playback mode
-- initiates the SSH connection to the remote host
-
-Machine B, remote machine:
-
-- runs Codex or Claude Code
-- installs `c-notify` hooks in relay mode
-- does not need audio files
-
-## Audio Location
-
-In remote mode, audio files belong on the machine that runs `c-notify serve`.
-
-Default location:
-
-- `~/.c-notify/sounds/`
-
-The remote machine only forwards hook payloads. It does not need sound assets unless you also want direct local playback there.
-
-## SSH Direction
-
-Run the SSH command on the local machine.
-
-The recommended tunnel is a reverse tunnel:
-
-- remote `127.0.0.1:38765`
-- forwards back to local `127.0.0.1:38765`
-
-That is why the SSH config belongs on the local machine, not the remote one.
+SSH reverse tunnel: remote `127.0.0.1:38765` forwards back to local `127.0.0.1:38765`.
+SSH config belongs on the local machine.
 
 ## Recommended Setup
 
@@ -115,21 +91,9 @@ to:
 
 - `c-notify.py relay --tool ... --endpoint http://127.0.0.1:38765`
 
-## Coexisting Local And Remote Usage
+## SSH Tunnel Management
 
-This is the intended shape:
-
-- Machine A local Codex / Claude:
-  direct playback via `hook`
-- Machine B remote Codex / Claude:
-  relay back to Machine A via `serve`
-
-That means one machine can be both:
-
-- a normal local playback machine
-- a receiver for one or more remote machines
-
-## Multiple SSH Sessions
+### Multiple Sessions
 
 Multiple remote shells are fine as long as they reuse one working reverse tunnel for the same remote host.
 
@@ -144,7 +108,7 @@ Recommended practice:
 - prefer SSH connection reuse
 - avoid manually creating several independent reverse tunnels that all compete for the same remote port
 
-## Dedicated Tunnel Process
+### Dedicated Tunnel Process
 
 If you want a more stable setup, keep the reverse tunnel outside VS Code and outside interactive shell sessions.
 

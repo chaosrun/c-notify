@@ -11,41 +11,17 @@
 - 本机 Codex / Claude 继续直接 `hook` 播放
 - 远端 Codex / Claude 通过 `relay -> serve` 回传到本机播放
 
-## 角色划分
+## 概览
 
-机器 A，本机：
+| | 本机 (A) | 远端 (B) |
+|---|---|---|
+| 角色 | 播放音效，运行 `c-notify serve` | 运行 Codex / Claude Code |
+| Hooks | 直接播放 (`hook`) | Relay 模式 (`relay`) |
+| 音频文件 | `~/.c-notify/sounds/` | 不需要 |
+| SSH | 发起连接，拥有隧道 | 接收反向转发端口 |
 
-- 音频文件放在 `~/.c-notify/sounds/`
-- 运行 `c-notify serve`
-- 本机 Codex / Claude 继续使用直接播放模式
-- 从这台机器发起 SSH 到远端
-
-机器 B，远端：
-
-- 跑 Codex 或 Claude Code
-- 安装 relay 模式的 `c-notify` hooks
-- 不需要音频文件
-
-## 音频文件放哪里
-
-remote 模式下，音频文件应该放在运行 `c-notify serve` 的那台机器上。
-
-默认位置：
-
-- `~/.c-notify/sounds/`
-
-远端机器只负责把 hook payload 回传，本身不需要音频资源。除非你还想让远端本地也能直接播放。
-
-## SSH 命令在哪运行
-
-SSH 命令在本机运行。
-
-推荐的隧道方向是 reverse tunnel：
-
-- 远端 `127.0.0.1:38765`
-- 回到本机 `127.0.0.1:38765`
-
-所以 SSH 配置应该写在本机，而不是远端。
+SSH reverse tunnel：远端 `127.0.0.1:38765` 回传到本机 `127.0.0.1:38765`。
+SSH 配置写在本机。
 
 ## 推荐配置
 
@@ -115,21 +91,9 @@ cd /path/to/c-notify
 
 - `c-notify.py relay --tool ... --endpoint http://127.0.0.1:38765`
 
-## 本机与远端共存
+## SSH 隧道管理
 
-这就是推荐形态：
-
-- 机器 A 本机 Codex / Claude：
-  直接播放
-- 机器 B 远端 Codex / Claude：
-  经 relay 回传到机器 A
-
-也就是说，一台机器可以同时是：
-
-- 正常本地播放机器
-- 远端事件接收机器
-
-## 多个 SSH 会话
+### 多个会话
 
 多个远端 shell 本身没问题，只要它们共享同一条可用的 reverse tunnel。
 
@@ -144,7 +108,7 @@ cd /path/to/c-notify
 - 尽量复用 SSH 连接
 - 避免手工启动多条互相竞争同一 remote port 的 reverse tunnel
 
-## 专用隧道进程
+### 专用隧道进程
 
 如果你想让这套东西更稳，建议把 reverse tunnel 从 VS Code 或交互式 shell 会话里拆出来，单独维护。
 
