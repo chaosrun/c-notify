@@ -57,7 +57,9 @@ chmod +x install.sh
 ./install.sh --remote-endpoint=http://127.0.0.1:38765 --remote-token=secret-token
 ```
 
-核心类别（Codex）：
+## 音效目录
+
+Codex：
 
 - `~/.c-notify/sounds/codex/task-acknowledge/`（来自 Codex 实验性 `UserPromptSubmit`）
 - `~/.c-notify/sounds/codex/task-complete/`
@@ -67,7 +69,7 @@ chmod +x install.sh
 - `~/.c-notify/sounds/codex/resource-limit/`
 - `~/.c-notify/sounds/codex/session-start/`（来自 Codex 实验性 `SessionStart`）
 
-核心类别（Claude）：
+Claude：
 
 - `~/.c-notify/sounds/claude/session-start/`
 - `~/.c-notify/sounds/claude/session-end/`（可选）
@@ -138,38 +140,40 @@ codex_hooks = true
 
 ### Claude Code（`~/.claude/settings.json`）
 
-可为多个事件统一使用同一条命令：
+每个事件使用相同的命令，只有事件名和 `matcher` 不同：
 
 ```json
 {
   "hooks": {
     "SessionStart": [
-      { "matcher": "", "hooks": [ { "type": "command", "command": "python3 /ABSOLUTE/PATH/TO/c-notify/c-notify.py hook --tool claude", "timeout": 10, "async": true } ] }
-    ],
-    "SessionEnd": [
-      { "matcher": "", "hooks": [ { "type": "command", "command": "python3 /ABSOLUTE/PATH/TO/c-notify/c-notify.py hook --tool claude", "timeout": 10, "async": true } ] }
-    ],
-    "SubagentStart": [
-      { "matcher": "", "hooks": [ { "type": "command", "command": "python3 /ABSOLUTE/PATH/TO/c-notify/c-notify.py hook --tool claude", "timeout": 10, "async": true } ] }
-    ],
-    "UserPromptSubmit": [
-      { "matcher": "", "hooks": [ { "type": "command", "command": "python3 /ABSOLUTE/PATH/TO/c-notify/c-notify.py hook --tool claude", "timeout": 10, "async": true } ] }
-    ],
-    "Stop": [
-      { "matcher": "", "hooks": [ { "type": "command", "command": "python3 /ABSOLUTE/PATH/TO/c-notify/c-notify.py hook --tool claude", "timeout": 10, "async": true } ] }
-    ],
-    "PermissionRequest": [
-      { "matcher": "", "hooks": [ { "type": "command", "command": "python3 /ABSOLUTE/PATH/TO/c-notify/c-notify.py hook --tool claude", "timeout": 10, "async": true } ] }
-    ],
-    "PostToolUseFailure": [
-      { "matcher": "Bash", "hooks": [ { "type": "command", "command": "python3 /ABSOLUTE/PATH/TO/c-notify/c-notify.py hook --tool claude", "timeout": 10, "async": true } ] }
-    ],
-    "PreCompact": [
-      { "matcher": "", "hooks": [ { "type": "command", "command": "python3 /ABSOLUTE/PATH/TO/c-notify/c-notify.py hook --tool claude", "timeout": 10, "async": true } ] }
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 /ABSOLUTE/PATH/TO/c-notify/c-notify.py hook --tool claude",
+            "timeout": 10,
+            "async": true
+          }
+        ]
+      }
     ]
   }
 }
 ```
+
+其余事件使用同样的结构：
+
+| 事件 | `matcher` |
+|------|-----------|
+| `SessionStart` | `""` |
+| `SessionEnd` | `""` |
+| `SubagentStart` | `""` |
+| `UserPromptSubmit` | `""` |
+| `Stop` | `""` |
+| `PermissionRequest` | `""` |
+| `PostToolUseFailure` | `"Bash"` |
+| `PreCompact` | `""` |
 
 `Notification` 不再注册；权限提示只由 `PermissionRequest` 触发。
 
@@ -215,37 +219,53 @@ c-notify serve --listen 127.0.0.1 --port 38765 --token secret-token
 - 只有显式传入 `--remote-endpoint` 时，`install.sh` 才会切换成 relay 模式。
 - 本机安装默认仍然是直接播放模式。
 - 接收服务提供 `GET /healthz`，并接收 `POST /hook/codex` 与 `POST /hook/claude`。
-- remote 示例文件见 [`examples/codex-config-remote.toml`](examples/codex-config-remote.toml)、[`examples/codex-hooks-remote.json`](examples/codex-hooks-remote.json)、[`examples/claude-hooks-remote.json`](examples/claude-hooks-remote.json)。
-- `serve` 自启动模板见 [`examples/systemd/c-notify-serve.service`](examples/systemd/c-notify-serve.service)、[`examples/systemd/serve.env.example`](examples/systemd/serve.env.example)、[`examples/launchd/com.c-notify.serve.plist`](examples/launchd/com.c-notify.serve.plist)。
-- 专用隧道模板见 [`examples/systemd/c-notify-tunnel.service`](examples/systemd/c-notify-tunnel.service)、[`examples/systemd/tunnel.env.example`](examples/systemd/tunnel.env.example)、[`examples/launchd/com.c-notify.tunnel.plist`](examples/launchd/com.c-notify.tunnel.plist)。
-- 更完整的 remote 配置说明见 [`docs/VS_CODE_REMOTE_SSH_ZH.md`](docs/VS_CODE_REMOTE_SSH_ZH.md)。
+- 完整配置说明见 [`docs/VS_CODE_REMOTE_SSH_ZH.md`](docs/VS_CODE_REMOTE_SSH_ZH.md)
 
-## 事件覆盖范围
+相关文件：
 
-查看当前内置事件：
-
-```bash
-./c-notify events
-./c-notify events --tool codex
-./c-notify events --tool claude
-```
+- Remote hook 示例：[`codex-config-remote.toml`](examples/codex-config-remote.toml)、[`codex-hooks-remote.json`](examples/codex-hooks-remote.json)、[`claude-hooks-remote.json`](examples/claude-hooks-remote.json)
+- 自启动模板：[`examples/systemd/`](examples/systemd/)（Linux）、[`examples/launchd/`](examples/launchd/)（macOS）
 
 ## 常用命令
+
+安装：
 
 ```bash
 ./install.sh
 ./c-notify init
 ./c-notify init --refresh-readmes
+```
+
+控制：
+
+```bash
 ./c-notify on
 ./c-notify off
 ./c-notify toggle
 ./c-notify status
+./c-notify events
+./c-notify events --tool codex
 ./c-notify events --tool claude
+```
+
+手动播放：
+
+```bash
 ./c-notify play --tool claude --event task-complete
 ./c-notify play --tool codex --event task-acknowledge
+```
+
+调试：
+
+```bash
 ./c-notify hook --tool codex --event session-start --debug
 ./c-notify hook --tool codex --debug
 ./c-notify hook --tool claude --debug
+```
+
+远程：
+
+```bash
 ./c-notify serve --listen 127.0.0.1 --port 38765
 ./c-notify relay --tool codex --endpoint http://127.0.0.1:38765 --debug
 ```

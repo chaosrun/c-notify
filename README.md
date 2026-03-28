@@ -57,7 +57,9 @@ Useful flags:
 ./install.sh --remote-endpoint=http://127.0.0.1:38765 --remote-token=secret-token
 ```
 
-Core categories (Codex):
+## Sound Directories
+
+Codex:
 
 - `~/.c-notify/sounds/codex/task-acknowledge/` (from Codex experimental `UserPromptSubmit`)
 - `~/.c-notify/sounds/codex/task-complete/`
@@ -67,7 +69,7 @@ Core categories (Codex):
 - `~/.c-notify/sounds/codex/resource-limit/`
 - `~/.c-notify/sounds/codex/session-start/` (from Codex experimental `SessionStart`)
 
-Core categories (Claude):
+Claude:
 
 - `~/.c-notify/sounds/claude/session-start/`
 - `~/.c-notify/sounds/claude/session-end/` (optional)
@@ -138,38 +140,40 @@ Notes:
 
 ### Claude Code (`~/.claude/settings.json`)
 
-Use one command entry for all events:
+Every event uses the same command; only the event key and `matcher` differ:
 
 ```json
 {
   "hooks": {
     "SessionStart": [
-      { "matcher": "", "hooks": [ { "type": "command", "command": "python3 /ABSOLUTE/PATH/TO/c-notify/c-notify.py hook --tool claude", "timeout": 10, "async": true } ] }
-    ],
-    "SessionEnd": [
-      { "matcher": "", "hooks": [ { "type": "command", "command": "python3 /ABSOLUTE/PATH/TO/c-notify/c-notify.py hook --tool claude", "timeout": 10, "async": true } ] }
-    ],
-    "SubagentStart": [
-      { "matcher": "", "hooks": [ { "type": "command", "command": "python3 /ABSOLUTE/PATH/TO/c-notify/c-notify.py hook --tool claude", "timeout": 10, "async": true } ] }
-    ],
-    "UserPromptSubmit": [
-      { "matcher": "", "hooks": [ { "type": "command", "command": "python3 /ABSOLUTE/PATH/TO/c-notify/c-notify.py hook --tool claude", "timeout": 10, "async": true } ] }
-    ],
-    "Stop": [
-      { "matcher": "", "hooks": [ { "type": "command", "command": "python3 /ABSOLUTE/PATH/TO/c-notify/c-notify.py hook --tool claude", "timeout": 10, "async": true } ] }
-    ],
-    "PermissionRequest": [
-      { "matcher": "", "hooks": [ { "type": "command", "command": "python3 /ABSOLUTE/PATH/TO/c-notify/c-notify.py hook --tool claude", "timeout": 10, "async": true } ] }
-    ],
-    "PostToolUseFailure": [
-      { "matcher": "Bash", "hooks": [ { "type": "command", "command": "python3 /ABSOLUTE/PATH/TO/c-notify/c-notify.py hook --tool claude", "timeout": 10, "async": true } ] }
-    ],
-    "PreCompact": [
-      { "matcher": "", "hooks": [ { "type": "command", "command": "python3 /ABSOLUTE/PATH/TO/c-notify/c-notify.py hook --tool claude", "timeout": 10, "async": true } ] }
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 /ABSOLUTE/PATH/TO/c-notify/c-notify.py hook --tool claude",
+            "timeout": 10,
+            "async": true
+          }
+        ]
+      }
     ]
   }
 }
 ```
+
+Repeat the same structure for each event:
+
+| Event | `matcher` |
+|-------|-----------|
+| `SessionStart` | `""` |
+| `SessionEnd` | `""` |
+| `SubagentStart` | `""` |
+| `UserPromptSubmit` | `""` |
+| `Stop` | `""` |
+| `PermissionRequest` | `""` |
+| `PostToolUseFailure` | `"Bash"` |
+| `PreCompact` | `""` |
 
 `Notification` is intentionally not registered; `PermissionRequest` is the only permission trigger.
 
@@ -215,37 +219,53 @@ Notes:
 - `install.sh` only switches to relay mode when you explicitly pass `--remote-endpoint`.
 - Local installs remain direct-playback installs.
 - The receiver exposes `GET /healthz` and accepts `POST /hook/codex` and `POST /hook/claude`.
-- Remote examples are included in [`examples/codex-config-remote.toml`](examples/codex-config-remote.toml), [`examples/codex-hooks-remote.json`](examples/codex-hooks-remote.json), and [`examples/claude-hooks-remote.json`](examples/claude-hooks-remote.json).
-- Serve autostart templates are included in [`examples/systemd/c-notify-serve.service`](examples/systemd/c-notify-serve.service), [`examples/systemd/serve.env.example`](examples/systemd/serve.env.example), and [`examples/launchd/com.c-notify.serve.plist`](examples/launchd/com.c-notify.serve.plist).
-- Dedicated tunnel templates are included in [`examples/systemd/c-notify-tunnel.service`](examples/systemd/c-notify-tunnel.service), [`examples/systemd/tunnel.env.example`](examples/systemd/tunnel.env.example), and [`examples/launchd/com.c-notify.tunnel.plist`](examples/launchd/com.c-notify.tunnel.plist).
-- See the dedicated guide for full setup details: [`docs/VS_CODE_REMOTE_SSH.md`](docs/VS_CODE_REMOTE_SSH.md).
+- Full setup guide: [`docs/VS_CODE_REMOTE_SSH.md`](docs/VS_CODE_REMOTE_SSH.md)
 
-## Event Coverage
+Related files:
 
-List current known events:
-
-```bash
-./c-notify events
-./c-notify events --tool codex
-./c-notify events --tool claude
-```
+- Remote hook examples: [`codex-config-remote.toml`](examples/codex-config-remote.toml), [`codex-hooks-remote.json`](examples/codex-hooks-remote.json), [`claude-hooks-remote.json`](examples/claude-hooks-remote.json)
+- Autostart templates: [`examples/systemd/`](examples/systemd/) (Linux), [`examples/launchd/`](examples/launchd/) (macOS)
 
 ## Commands
+
+Setup:
 
 ```bash
 ./install.sh
 ./c-notify init
 ./c-notify init --refresh-readmes
+```
+
+Control:
+
+```bash
 ./c-notify on
 ./c-notify off
 ./c-notify toggle
 ./c-notify status
+./c-notify events
+./c-notify events --tool codex
 ./c-notify events --tool claude
+```
+
+Manual playback:
+
+```bash
 ./c-notify play --tool claude --event task-complete
 ./c-notify play --tool codex --event task-acknowledge
+```
+
+Debug:
+
+```bash
 ./c-notify hook --tool codex --event session-start --debug
 ./c-notify hook --tool codex --debug
 ./c-notify hook --tool claude --debug
+```
+
+Remote:
+
+```bash
 ./c-notify serve --listen 127.0.0.1 --port 38765
 ./c-notify relay --tool codex --endpoint http://127.0.0.1:38765 --debug
 ```
