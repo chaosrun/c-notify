@@ -16,7 +16,7 @@
 - 便携总开关：`on / off / toggle / status`
 - 支持 macOS / Linux 播放后端
 - 自动初始化事件目录与中英双语 `README.md`
-- 支持 Codex `0.114.0+` 的实验性 `SessionStart` 与 `UserPromptSubmit` hooks
+- 支持 Codex `SessionStart`、`UserPromptSubmit`、`PermissionRequest` 与 `PreCompact` hooks
 - 支持可选的 remote relay 模式，适用于 VS Code Remote SSH 等远程开发场景
 - Codex 路由是确定性的：`agent-turn-complete` 直接映射到 `task-complete`
 
@@ -43,7 +43,7 @@ chmod +x install.sh
 - 安装 `~/.local/bin/c-notify`（符号链接）
 - 在你的 shell rc 文件追加 PATH 块（zsh 用 `~/.zshrc`，bash 用 `~/.bashrc`/`~/.bash_profile`）
 - 写入/更新 Codex 的 `~/.codex/config.toml`
-- 写入/更新 Codex 的实验性 hooks 文件 `~/.codex/hooks.json`
+- 写入/更新 Codex hooks 文件 `~/.codex/hooks.json`
 - 写入/更新 Claude 的 `~/.claude/settings.json`
 
 常用参数：
@@ -61,13 +61,13 @@ chmod +x install.sh
 
 Codex：
 
-- `~/.c-notify/sounds/codex/task-acknowledge/`（来自 Codex 实验性 `UserPromptSubmit`）
+- `~/.c-notify/sounds/codex/task-acknowledge/`（来自 Codex `UserPromptSubmit`）
 - `~/.c-notify/sounds/codex/task-complete/`
-- `~/.c-notify/sounds/codex/permission-needed/`
+- `~/.c-notify/sounds/codex/permission-needed/`（来自 Codex `PermissionRequest`）
 - `~/.c-notify/sounds/codex/task-error/`
-- `~/.c-notify/sounds/codex/context-compact/`
+- `~/.c-notify/sounds/codex/context-compact/`（来自 Codex `PreCompact`）
 - `~/.c-notify/sounds/codex/resource-limit/`
-- `~/.c-notify/sounds/codex/session-start/`（来自 Codex 实验性 `SessionStart`）
+- `~/.c-notify/sounds/codex/session-start/`（来自 Codex `SessionStart`）
 
 Claude：
 
@@ -85,16 +85,16 @@ Claude：
 
 ### Codex（`~/.codex/config.toml` 与 `~/.codex/hooks.json`）
 
-`config.toml` 保留 `notify` 负责完成音效，并开启实验性 hooks 引擎：
+`config.toml` 保留 `notify` 负责完成音效，并开启 hooks 引擎：
 
 ```toml
 notify = ["python3", "/ABSOLUTE/PATH/TO/c-notify/c-notify.py", "hook", "--tool", "codex"]
 
 [features]
-codex_hooks = true
+hooks = true
 ```
 
-`hooks.json` 接入 `SessionStart` 与 `UserPromptSubmit`：
+`hooks.json` 接入 `SessionStart`、`UserPromptSubmit`、`PermissionRequest` 与 `PreCompact`：
 
 ```json
 {
@@ -122,6 +122,30 @@ codex_hooks = true
           }
         ]
       }
+    ],
+    "PermissionRequest": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 /ABSOLUTE/PATH/TO/c-notify/c-notify.py hook --tool codex",
+            "timeout": 10,
+            "statusMessage": "Playing c-notify permission-needed sound"
+          }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 /ABSOLUTE/PATH/TO/c-notify/c-notify.py hook --tool codex",
+            "timeout": 10,
+            "statusMessage": "Playing c-notify context-compact sound"
+          }
+        ]
+      }
     ]
   }
 }
@@ -131,11 +155,15 @@ codex_hooks = true
 
 - Codex `notify` 在当前正常链路下主要是 `agent-turn-complete`。
 - Codex 不做消息语义推断；`agent-turn-complete` 总是路由到 `task-complete`。
-- Codex 实验性 hooks 当前用于 `SessionStart` 与 `UserPromptSubmit`。
+- Codex hooks 当前用于 `SessionStart`、`UserPromptSubmit`、`PermissionRequest` 与 `PreCompact`。
+- Codex 新增或变更 hook 后可能要求在 TUI 里 review；当 Codex 提示时，打开 `/hooks` 并批准 `c-notify` 条目。
 - `UserPromptSubmit` 会映射到 `task-acknowledge`。
+- `PermissionRequest` 会映射到 `permission-needed`。
+- `PreCompact` 会映射到 `context-compact`；`PostCompact` 可识别为同一类别，但默认不安装，避免 compact 前后连响两次。
 - 对同一个 Codex `session_id`，紧跟在 `SessionStart` 后的首个 `UserPromptSubmit` 会被抑制，以避免新会话或恢复会话时连播两次声音。
 - `Stop` 不写入 `hooks.json`；完成音效已经由 `notify` 负责，再接 `Stop` 会重复播放。
-- Codex 的 `permission-needed` / `task-error` / `resource-limit` / `context-compact` 当前仍属于显式/手动类别，除非未来 Codex 原生发出对应事件。
+- `PreToolUse` 与 `PostToolUse` 默认不写入，因为它们是高频工具事件。
+- Codex 的 `task-error` 与 `resource-limit` 当前仍属于显式/手动类别，除非未来 Codex 原生发出对应事件。
 - 示例文件见 [`examples/codex-config.toml`](examples/codex-config.toml) 与 [`examples/codex-hooks.json`](examples/codex-hooks.json)。
 
 ### Claude Code（`~/.claude/settings.json`）
@@ -263,6 +291,7 @@ c-notify serve --listen 127.0.0.1 --port 38765 --token secret-token
 ./c-notify hook --tool codex --event session-start --debug
 ./c-notify hook --tool codex --debug
 ./c-notify hook --tool claude --debug
+tail -n 40 ~/.c-notify/logs/hook-events.jsonl
 ```
 
 远程：
@@ -277,6 +306,8 @@ c-notify serve --listen 127.0.0.1 --port 38765 --token secret-token
 运行时配置：
 
 - `~/.c-notify/config.json`
+- `~/.c-notify/state.json`
+- `~/.c-notify/logs/hook-events.jsonl`
 
 可选覆盖：
 
@@ -294,6 +325,12 @@ c-notify serve --listen 127.0.0.1 --port 38765 --token secret-token
 - `prevent_overlap`：前一个音频进程未结束时是否跳过新播放
 - `cooldown_seconds` / `cooldown_by_event`：节流设置
 - `hook_strict_exit`：默认 `false`；开启后 unmapped/no-sound 会返回非零退出码
+
+Hook 调试日志：
+
+- `~/.c-notify/logs/hook-events.jsonl` 会记录最近的 Codex / Claude hook 调用
+- payload 文本会做截断，避免单条日志过大
+- 会自动轮转：`256 KiB x 4 files`
 
 ## 平台支持
 

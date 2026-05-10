@@ -178,7 +178,7 @@ else:
     notify_cmd.extend(["hook", "--tool", "codex"])
 
 notify_line = "notify = " + json.dumps(notify_cmd)
-codex_hooks_line = "codex_hooks = true"
+hooks_line = "hooks = true"
 
 def is_table_header(line: str) -> bool:
     return re.match(r"^\s*\[[^\]]+\]\s*$", line) is not None
@@ -239,8 +239,24 @@ def set_table_key(lines_in, table, key, value_line):
         out.extend([f"[{table}]", value_line])
     return out
 
+def remove_table_key(lines_in, table, key):
+    out = []
+    in_target = False
+    key_re = re.compile(rf"^\s*{re.escape(key)}\s*=")
+    for line in lines_in:
+        if is_table_header(line):
+            table_name = line.strip()[1:-1].strip()
+            in_target = table_name == table
+            out.append(line)
+            continue
+        if in_target and key_re.match(line):
+            continue
+        out.append(line)
+    return out
+
 new_lines = set_top_level_key(lines, "notify", notify_line)
-new_lines = set_table_key(new_lines, "features", "codex_hooks", codex_hooks_line)
+new_lines = remove_table_key(new_lines, "features", "codex_hooks")
+new_lines = set_table_key(new_lines, "features", "hooks", hooks_line)
 config_path.write_text("\n".join(new_lines).rstrip() + "\n", encoding="utf-8")
 PY
 }
@@ -284,6 +300,8 @@ if not isinstance(hooks, dict):
 events = {
     "SessionStart": "Playing c-notify session-start sound",
     "UserPromptSubmit": "Playing c-notify task-acknowledge sound",
+    "PermissionRequest": "Playing c-notify permission-needed sound",
+    "PreCompact": "Playing c-notify context-compact sound",
 }
 
 def make_entry(status_message: str):

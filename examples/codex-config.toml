@@ -2,4 +2,4 @@
 notify = ["python3", "/ABSOLUTE/PATH/TO/c-notify/c-notify.py", "hook", "--tool", "codex"]
 
 [features]
-codex_hooks = true
+hooks = true

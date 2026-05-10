@@ -2,4 +2,4 @@
 notify = ["python3", "/ABSOLUTE/PATH/TO/c-notify/c-notify.py", "relay", "--tool", "codex", "--endpoint", "http://127.0.0.1:38765"]
 
 [features]
-codex_hooks = true
+hooks = true

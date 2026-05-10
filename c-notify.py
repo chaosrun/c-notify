@@ -31,11 +31,17 @@ APP_DIR = Path(os.environ.get("C_NOTIFY_HOME", str(HOME_DIR / ".c-notify"))).exp
 CONFIG_PATH = APP_DIR / "config.json"
 STATE_PATH = APP_DIR / "state.json"
 LOCK_PATH = APP_DIR / ".state.lock"
+LOG_LOCK_PATH = APP_DIR / ".hook-log.lock"
+LOG_DIR = APP_DIR / "logs"
+HOOK_LOG_PATH = LOG_DIR / "hook-events.jsonl"
 DEFAULT_SOUND_ROOT = APP_DIR / "sounds"
 CODEX_SESSION_START_SUPPRESS_SECONDS = 15.0
 REMOTE_DEFAULT_HOST = "127.0.0.1"
 REMOTE_DEFAULT_PORT = 38765
 REMOTE_DEFAULT_TIMEOUT = 3.0
+HOOK_LOG_MAX_BYTES = 256 * 1024
+HOOK_LOG_BACKUP_COUNT = 3
+HOOK_LOG_PAYLOAD_LIMIT = 400
 
 DEFAULT_CONFIG: dict[str, Any] = {
     "enabled": True,
@@ -58,28 +64,28 @@ DEFAULT_STATE: dict[str, Any] = {
 EVENT_DOCS: dict[str, dict[str, dict[str, str]]] = {
     "codex": {
         "session-start": {
-            "en": "Mapped from the experimental Codex SessionStart hook. Codex notify still does not emit session-start.",
-            "zh": "映射自实验性的 Codex SessionStart hook。Codex notify 仍不会发出 session-start。",
+            "en": "Mapped from the Codex SessionStart hook. Codex notify still does not emit session-start.",
+            "zh": "映射自 Codex SessionStart hook。Codex notify 仍不会发出 session-start。",
         },
         "task-acknowledge": {
-            "en": "Mapped from the experimental Codex UserPromptSubmit hook.",
-            "zh": "映射自实验性的 Codex UserPromptSubmit hook。",
+            "en": "Mapped from the Codex UserPromptSubmit hook.",
+            "zh": "映射自 Codex UserPromptSubmit hook。",
         },
         "task-complete": {
             "en": "Default completion category for normal agent-turn-complete results.",
             "zh": "普通 agent-turn-complete 结果的默认完成类别。",
         },
         "permission-needed": {
-            "en": "Explicit/manual permission category for Codex.",
-            "zh": "Codex 的显式/手动权限类别。",
+            "en": "Mapped from the Codex PermissionRequest hook.",
+            "zh": "映射自 Codex PermissionRequest hook。",
         },
         "task-error": {
             "en": "Explicit/manual error category.",
             "zh": "显式/手动错误类别。",
         },
         "context-compact": {
-            "en": "Explicit/manual context compaction category. Falls back to resource-limit.",
-            "zh": "显式/手动上下文压缩类别。会回退到 resource-limit。",
+            "en": "Mapped from the Codex PreCompact hook. Falls back to resource-limit.",
+            "zh": "映射自 Codex PreCompact hook。会回退到 resource-limit。",
         },
         "resource-limit": {
             "en": "Explicit/manual general resource-limit category.",
@@ -139,6 +145,8 @@ CODEX_ALIAS_MAP = {
     "complete": "task-complete",
     "done": "task-complete",
     "approval-requested": "permission-needed",
+    "permissionrequest": "permission-needed",
+    "permission-request": "permission-needed",
     "permission": "permission-needed",
     "permission-needed": "permission-needed",
     "approve": "permission-needed",
@@ -152,6 +160,9 @@ CODEX_ALIAS_MAP = {
     "quota": "resource-limit",
     "context-compact": "context-compact",
     "precompact": "context-compact",
+    "pre-compact": "context-compact",
+    "postcompact": "context-compact",
+    "post-compact": "context-compact",
     "compact": "context-compact",
     "session-start": "session-start",
     "sessionstart": "session-start",
@@ -221,18 +232,30 @@ def save_state(state: dict[str, Any]) -> None:
 
 
 @contextmanager
-def state_lock() -> Any:
+def _advisory_lock(lock_path: Path) -> Any:
     if fcntl is None:
         yield
         return
 
-    LOCK_PATH.parent.mkdir(parents=True, exist_ok=True)
-    with LOCK_PATH.open("a+", encoding="utf-8") as lock_file:
+    lock_path.parent.mkdir(parents=True, exist_ok=True)
+    with lock_path.open("a+", encoding="utf-8") as lock_file:
         fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
         try:
             yield
         finally:
             fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
+
+
+@contextmanager
+def state_lock() -> Any:
+    with _advisory_lock(LOCK_PATH):
+        yield
+
+
+@contextmanager
+def hook_log_lock() -> Any:
+    with _advisory_lock(LOG_LOCK_PATH):
+        yield
 
 
 def _sound_root(config: dict[str, Any]) -> Path:
@@ -483,6 +506,82 @@ def _resolve_payload_text(payload_arg: str | None, extra_tokens: list[str]) -> s
     return ""
 
 
+def _truncate_text(value: str, limit: int) -> tuple[str, bool]:
+    if len(value) <= limit:
+        return value, False
+    return value[:limit] + "...", True
+
+
+def _rotate_log(path: Path, backup_count: int) -> None:
+    oldest = path.with_name(f"{path.name}.{backup_count}")
+    if oldest.exists():
+        oldest.unlink()
+
+    for index in range(backup_count - 1, 0, -1):
+        src = path.with_name(f"{path.name}.{index}")
+        dst = path.with_name(f"{path.name}.{index + 1}")
+        if src.exists():
+            src.replace(dst)
+
+    if path.exists():
+        path.replace(path.with_name(f"{path.name}.1"))
+
+
+def _append_hook_log(entry: dict[str, Any]) -> None:
+    line = (json.dumps(entry, ensure_ascii=False, separators=(",", ":")) + "\n").encode("utf-8")
+    try:
+        HOOK_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
+        with hook_log_lock():
+            current_size = HOOK_LOG_PATH.stat().st_size if HOOK_LOG_PATH.exists() else 0
+            if current_size + len(line) > HOOK_LOG_MAX_BYTES:
+                _rotate_log(HOOK_LOG_PATH, HOOK_LOG_BACKUP_COUNT)
+            with HOOK_LOG_PATH.open("ab") as fh:
+                fh.write(line)
+    except OSError:
+        pass
+
+
+def _hook_log_entry(
+    tool: str,
+    source: str,
+    event_override: str,
+    payload_text: str,
+    payload: Any,
+    result: dict[str, Any],
+) -> dict[str, Any]:
+    payload_excerpt, payload_truncated = _truncate_text(payload_text, HOOK_LOG_PAYLOAD_LIMIT)
+    payload_event = ""
+    payload_type = ""
+    session_id = ""
+    turn_id = ""
+    if isinstance(payload, dict):
+        payload_event = str(payload.get("hook_event_name") or payload.get("type") or payload.get("event") or "")
+        payload_type = str(payload.get("type") or "")
+        session_id = str(payload.get("session_id") or payload.get("thread-id") or "")
+        turn_id = str(payload.get("turn_id") or "")
+
+    played_file = str(result.get("played_file") or "")
+    return {
+        "ts": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        "pid": os.getpid(),
+        "source": source,
+        "tool": tool,
+        "event_override": event_override,
+        "payload_event": payload_event,
+        "payload_type": payload_type,
+        "session_id": session_id,
+        "turn_id": turn_id,
+        "normalized_event": result.get("normalized_event", ""),
+        "candidates": result.get("candidates", []),
+        "played_event": result.get("played_event", ""),
+        "played_file": Path(played_file).name if played_file else "",
+        "outcome": result.get("outcome", ""),
+        "exit_code": result.get("exit_code", 0),
+        "payload_excerpt": payload_excerpt,
+        "payload_truncated": payload_truncated,
+    }
+
+
 def _normalize_codex_event(raw_event: str) -> str:
     if not raw_event:
         return ""
@@ -656,6 +755,8 @@ def cmd_status() -> int:
     print(f"c-notify: {'ON' if enabled else 'OFF'}")
     print(f"config: {CONFIG_PATH}")
     print(f"state: {STATE_PATH}")
+    print(f"hook_log: {HOOK_LOG_PATH}")
+    print(f"hook_log_rotation: {HOOK_LOG_MAX_BYTES // 1024} KiB x {HOOK_LOG_BACKUP_COUNT + 1} files")
     print(f"sound_root: {_sound_root(config)}")
     print(f"hook_strict_exit: {bool(config.get('hook_strict_exit', False))}")
     print("platform_support: macOS/Linux")
@@ -694,13 +795,13 @@ def cmd_play(tool: str, event_name: str) -> int:
     return 0
 
 
-def _run_hook(tool: str, event_override: str, payload_text: str) -> dict[str, Any]:
+def _run_hook(tool: str, event_override: str, payload_text: str, source: str = "hook") -> dict[str, Any]:
     config = load_config()
     strict_exit = bool(config.get("hook_strict_exit", False))
     payload = _parse_payload(payload_text)
 
     if not bool(config.get("enabled", True)):
-        return {
+        result = {
             "tool": tool,
             "normalized_event": "unknown",
             "candidates": [],
@@ -710,6 +811,8 @@ def _run_hook(tool: str, event_override: str, payload_text: str) -> dict[str, An
             "strict_exit": strict_exit,
             "exit_code": 0,
         }
+        _append_hook_log(_hook_log_entry(tool, source, event_override, payload_text, payload, result))
+        return result
 
     if tool == "codex":
         normalized, candidates = resolve_codex_events(payload, event_override)
@@ -733,7 +836,7 @@ def _run_hook(tool: str, event_override: str, payload_text: str) -> dict[str, An
         outcome = "unmapped"
         exit_code = 2 if strict_exit else 0
 
-    return {
+    result = {
         "tool": tool,
         "normalized_event": normalized,
         "candidates": candidates,
@@ -743,11 +846,13 @@ def _run_hook(tool: str, event_override: str, payload_text: str) -> dict[str, An
         "strict_exit": strict_exit,
         "exit_code": exit_code,
     }
+    _append_hook_log(_hook_log_entry(tool, source, event_override, payload_text, payload, result))
+    return result
 
 
 def cmd_hook(tool: str, event_override: str, payload_arg: str | None, extra: list[str], debug: bool) -> int:
     payload_text = _resolve_payload_text(payload_arg, extra)
-    result = _run_hook(tool, event_override, payload_text)
+    result = _run_hook(tool, event_override, payload_text, source="hook")
     if debug:
         print(json.dumps(result, indent=2))
     return int(result["exit_code"])
@@ -870,7 +975,7 @@ def cmd_serve(listen: str, port: int, token: str) -> int:
                 payload_text = str(data.get("payload_text", ""))
                 event_override = str(data.get("event_override", ""))
 
-            result = _run_hook(tool, event_override, payload_text)
+            result = _run_hook(tool, event_override, payload_text, source="serve")
             self._send_json(200, result)
 
     server = http.server.ThreadingHTTPServer((listen, port), RequestHandler)

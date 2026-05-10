@@ -16,7 +16,7 @@ Audio files are user-provided. The repository does not bundle sound assets.
 - Global portable switch: `on / off / toggle / status`
 - Linux/macOS playback backend support
 - Event folder bootstrap with bilingual `README.md` per folder
-- Experimental Codex `SessionStart` and `UserPromptSubmit` hook support on Codex `0.114.0+`
+- Codex hook support for `SessionStart`, `UserPromptSubmit`, `PermissionRequest`, and `PreCompact`
 - Optional remote relay mode for VS Code Remote SSH and other SSH-based remote workflows
 - Deterministic Codex routing: `agent-turn-complete` maps directly to `task-complete`
 
@@ -43,7 +43,7 @@ What `install.sh` does:
 - Installs `c-notify` to `~/.local/bin/c-notify` (symlink)
 - Appends a PATH block to your shell rc file (`~/.zshrc` for zsh, `~/.bashrc`/`~/.bash_profile` for bash)
 - Writes/updates Codex notify config in `~/.codex/config.toml`
-- Writes/updates Codex experimental hooks in `~/.codex/hooks.json`
+- Writes/updates Codex hooks in `~/.codex/hooks.json`
 - Writes/updates Claude hooks in `~/.claude/settings.json`
 
 Useful flags:
@@ -61,13 +61,13 @@ Useful flags:
 
 Codex:
 
-- `~/.c-notify/sounds/codex/task-acknowledge/` (from Codex experimental `UserPromptSubmit`)
+- `~/.c-notify/sounds/codex/task-acknowledge/` (from Codex `UserPromptSubmit`)
 - `~/.c-notify/sounds/codex/task-complete/`
-- `~/.c-notify/sounds/codex/permission-needed/`
+- `~/.c-notify/sounds/codex/permission-needed/` (from Codex `PermissionRequest`)
 - `~/.c-notify/sounds/codex/task-error/`
-- `~/.c-notify/sounds/codex/context-compact/`
+- `~/.c-notify/sounds/codex/context-compact/` (from Codex `PreCompact`)
 - `~/.c-notify/sounds/codex/resource-limit/`
-- `~/.c-notify/sounds/codex/session-start/` (from Codex experimental `SessionStart`)
+- `~/.c-notify/sounds/codex/session-start/` (from Codex `SessionStart`)
 
 Claude:
 
@@ -85,16 +85,16 @@ Claude:
 
 ### Codex (`~/.codex/config.toml` and `~/.codex/hooks.json`)
 
-`config.toml` keeps `notify` for completion and enables the experimental hooks engine:
+`config.toml` keeps `notify` for completion and enables the hooks engine:
 
 ```toml
 notify = ["python3", "/ABSOLUTE/PATH/TO/c-notify/c-notify.py", "hook", "--tool", "codex"]
 
 [features]
-codex_hooks = true
+hooks = true
 ```
 
-`hooks.json` wires `SessionStart` and `UserPromptSubmit` into `c-notify`:
+`hooks.json` wires `SessionStart`, `UserPromptSubmit`, `PermissionRequest`, and `PreCompact` into `c-notify`:
 
 ```json
 {
@@ -122,6 +122,30 @@ codex_hooks = true
           }
         ]
       }
+    ],
+    "PermissionRequest": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 /ABSOLUTE/PATH/TO/c-notify/c-notify.py hook --tool codex",
+            "timeout": 10,
+            "statusMessage": "Playing c-notify permission-needed sound"
+          }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 /ABSOLUTE/PATH/TO/c-notify/c-notify.py hook --tool codex",
+            "timeout": 10,
+            "statusMessage": "Playing c-notify context-compact sound"
+          }
+        ]
+      }
     ]
   }
 }
@@ -131,11 +155,15 @@ Notes:
 
 - Codex `notify` currently sends `agent-turn-complete` payloads in normal operation.
 - Codex does not use message-semantic inference; `agent-turn-complete` always routes to `task-complete`.
-- Codex experimental hooks are currently used for `SessionStart` and `UserPromptSubmit`.
+- Codex hooks are currently used for `SessionStart`, `UserPromptSubmit`, `PermissionRequest`, and `PreCompact`.
+- New or changed Codex hooks may require review in the TUI; open `/hooks` and approve the `c-notify` entries when Codex prompts for review.
 - `UserPromptSubmit` maps to `task-acknowledge`.
+- `PermissionRequest` maps to `permission-needed`.
+- `PreCompact` maps to `context-compact`; `PostCompact` is recognized as the same category but is not installed by default to avoid double playback.
 - The first `UserPromptSubmit` immediately following `SessionStart` for the same Codex `session_id` is suppressed to avoid double playback on a brand-new or resumed session.
 - `Stop` is intentionally not registered in `hooks.json`; completion already comes from `notify`, so wiring both would duplicate playback.
-- Codex `permission-needed` / `task-error` / `resource-limit` / `context-compact` remain explicit/manual categories unless Codex emits native events for them later.
+- `PreToolUse` and `PostToolUse` are intentionally not registered by default because they are high-frequency tool events.
+- Codex `task-error` and `resource-limit` remain explicit/manual categories unless Codex emits native events for them later.
 - Example files are included in [`examples/codex-config.toml`](examples/codex-config.toml) and [`examples/codex-hooks.json`](examples/codex-hooks.json).
 
 ### Claude Code (`~/.claude/settings.json`)
@@ -263,6 +291,7 @@ Debug:
 ./c-notify hook --tool codex --event session-start --debug
 ./c-notify hook --tool codex --debug
 ./c-notify hook --tool claude --debug
+tail -n 40 ~/.c-notify/logs/hook-events.jsonl
 ```
 
 Remote:
@@ -277,6 +306,8 @@ Remote:
 Runtime config path:
 
 - `~/.c-notify/config.json`
+- `~/.c-notify/state.json`
+- `~/.c-notify/logs/hook-events.jsonl`
 
 Optional override:
 
@@ -294,6 +325,12 @@ Important keys:
 - `prevent_overlap`: skip new playback while prior process is alive
 - `cooldown_seconds` and `cooldown_by_event`: optional throttling
 - `hook_strict_exit`: default `false`; when `true`, hook exits non-zero for unmapped/no-sound outcomes
+
+Hook debug log:
+
+- `~/.c-notify/logs/hook-events.jsonl` records recent hook invocations for Codex and Claude
+- payload text is truncated to keep entries small
+- rotation is automatic: `256 KiB x 4 files`
 
 ## Platform Support
 
