@@ -117,10 +117,6 @@ EVENT_DOCS: dict[str, dict[str, dict[str, str]]] = {
             "en": "Mapped from PermissionRequest.",
             "zh": "映射自 PermissionRequest。",
         },
-        "task-error": {
-            "en": "Mapped from PostToolUseFailure.",
-            "zh": "映射自 PostToolUseFailure。",
-        },
         "context-compact": {
             "en": "Mapped from PreCompact.",
             "zh": "映射自 PreCompact。",
@@ -176,7 +172,6 @@ CLAUDE_EVENT_TO_CATEGORY = {
     "user-prompt-submit": "task-acknowledge",
     "stop": "task-complete",
     "permission-request": "permission-needed",
-    "post-tool-use-failure": "task-error",
     "pre-compact": "context-compact",
 }
 
@@ -668,7 +663,6 @@ def _normalize_claude_event(raw_event: str) -> str:
         "userpromptsubmit": "user-prompt-submit",
         "stop": "stop",
         "permissionrequest": "permission-request",
-        "posttoolusefailure": "post-tool-use-failure",
         "precompact": "pre-compact",
     }
     return table.get(key, _slug(raw_event))

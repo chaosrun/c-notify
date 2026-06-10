@@ -77,7 +77,6 @@ Claude:
 - `~/.c-notify/sounds/claude/task-acknowledge/`
 - `~/.c-notify/sounds/claude/task-complete/`
 - `~/.c-notify/sounds/claude/permission-needed/`
-- `~/.c-notify/sounds/claude/task-error/`
 - `~/.c-notify/sounds/claude/context-compact/`
 - `~/.c-notify/sounds/claude/resource-limit/`
 
@@ -200,7 +199,6 @@ Repeat the same structure for each event:
 | `UserPromptSubmit` | `""` |
 | `Stop` | `""` |
 | `PermissionRequest` | `""` |
-| `PostToolUseFailure` | `"Bash"` |
 | `PreCompact` | `""` |
 
 `Notification` is intentionally not registered; `PermissionRequest` is the only permission trigger.

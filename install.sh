@@ -405,7 +405,6 @@ events = [
     ("UserPromptSubmit", "", True),
     ("Stop", "", True),
     ("PermissionRequest", "", True),
-    ("PostToolUseFailure", "Bash", True),
     ("PreCompact", "", True),
 ]
 
@@ -441,7 +440,7 @@ def is_c_notify_entry(entry):
 
 managed_events = {name for name, _, _ in events}
 
-# Remove stale c-notify entries globally so dropped events (for example SubagentStop)
+# Remove stale c-notify entries globally so dropped events
 # no longer keep spawning no-op hook processes.
 for event_name in list(hooks.keys()):
     event_hooks = hooks.get(event_name, [])

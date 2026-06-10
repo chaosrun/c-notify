@@ -77,7 +77,6 @@ Claude：
 - `~/.c-notify/sounds/claude/task-acknowledge/`
 - `~/.c-notify/sounds/claude/task-complete/`
 - `~/.c-notify/sounds/claude/permission-needed/`
-- `~/.c-notify/sounds/claude/task-error/`
 - `~/.c-notify/sounds/claude/context-compact/`
 - `~/.c-notify/sounds/claude/resource-limit/`
 
@@ -200,7 +199,6 @@ hooks = true
 | `UserPromptSubmit` | `""` |
 | `Stop` | `""` |
 | `PermissionRequest` | `""` |
-| `PostToolUseFailure` | `"Bash"` |
 | `PreCompact` | `""` |
 
 `Notification` 不再注册；权限提示只由 `PermissionRequest` 触发。
