@@ -14,6 +14,7 @@
 - 按工具分命名空间（`codex` 与 `claude`），事件集合可不同
 - 按事件目录随机播放
 - 便携总开关：`on / off / toggle / status`
+- 独立权限请求音效开关：`permission on / off / toggle / status`
 - 支持 macOS / Linux 播放后端
 - 自动初始化事件目录与中英双语 `README.md`
 - 支持 Codex `SessionStart`、`UserPromptSubmit`、`PermissionRequest` 与 `PreCompact` hooks
@@ -271,6 +272,10 @@ c-notify serve --listen 127.0.0.1 --port 38765 --token secret-token
 ./c-notify off
 ./c-notify toggle
 ./c-notify status
+./c-notify permission off
+./c-notify permission on
+./c-notify permission toggle
+./c-notify permission status
 ./c-notify events
 ./c-notify events --tool codex
 ./c-notify events --tool claude
@@ -322,6 +327,7 @@ tail -n 40 ~/.c-notify/logs/hook-events.jsonl
 - `extensions`：允许的音频扩展名
 - `prevent_overlap`：前一个音频进程未结束时是否跳过新播放
 - `cooldown_seconds` / `cooldown_by_event`：节流设置
+- `permission_sound_enabled`：默认 `true`；为 `false` 时，`permission-needed` 事件只记录日志，不播放声音
 - `hook_strict_exit`：默认 `false`；开启后 unmapped/no-sound 会返回非零退出码
 
 Hook 调试日志：

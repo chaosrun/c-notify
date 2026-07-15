@@ -51,6 +51,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "prevent_overlap": False,
     "cooldown_seconds": 0.0,
     "cooldown_by_event": {},
+    "permission_sound_enabled": True,
     "hook_strict_exit": False,
 }
 
@@ -568,6 +569,7 @@ def _hook_log_entry(
         "turn_id": turn_id,
         "normalized_event": result.get("normalized_event", ""),
         "candidates": result.get("candidates", []),
+        "muted_candidates": result.get("muted_candidates", []),
         "played_event": result.get("played_event", ""),
         "played_file": Path(played_file).name if played_file else "",
         "outcome": result.get("outcome", ""),
@@ -743,10 +745,31 @@ def cmd_toggle() -> int:
     return set_enabled(not current)
 
 
+def set_permission_sound_enabled(value: bool) -> int:
+    config = load_config()
+    config["permission_sound_enabled"] = value
+    _save_json(CONFIG_PATH, config)
+    print("c-notify permission sound: ON" if value else "c-notify permission sound: OFF")
+    return 0
+
+
+def cmd_permission(action: str) -> int:
+    config = load_config()
+    current = bool(config.get("permission_sound_enabled", True))
+    if action == "status":
+        print("c-notify permission sound: ON" if current else "c-notify permission sound: OFF")
+        return 0
+    if action == "toggle":
+        return set_permission_sound_enabled(not current)
+    return set_permission_sound_enabled(action == "on")
+
+
 def cmd_status() -> int:
     config = load_config()
     enabled = bool(config.get("enabled", True))
+    permission_sound_enabled = bool(config.get("permission_sound_enabled", True))
     print(f"c-notify: {'ON' if enabled else 'OFF'}")
+    print(f"permission_sound: {'ON' if permission_sound_enabled else 'OFF'}")
     print(f"config: {CONFIG_PATH}")
     print(f"state: {STATE_PATH}")
     print(f"hook_log: {HOOK_LOG_PATH}")
@@ -789,6 +812,20 @@ def cmd_play(tool: str, event_name: str) -> int:
     return 0
 
 
+def _apply_event_switches(config: dict[str, Any], candidates: list[str]) -> tuple[list[str], list[str]]:
+    if bool(config.get("permission_sound_enabled", True)):
+        return candidates, []
+
+    active: list[str] = []
+    muted: list[str] = []
+    for event_name in candidates:
+        if event_name == "permission-needed":
+            muted.append(event_name)
+        else:
+            active.append(event_name)
+    return active, muted
+
+
 def _run_hook(tool: str, event_override: str, payload_text: str, source: str = "hook") -> dict[str, Any]:
     config = load_config()
     strict_exit = bool(config.get("hook_strict_exit", False))
@@ -817,11 +854,18 @@ def _run_hook(tool: str, event_override: str, payload_text: str, source: str = "
         state = load_state()
         if tool == "codex":
             candidates = _codex_apply_runtime_filters(normalized, candidates, payload, state)
-        sound_path, used_event = try_play_event(tool, candidates, config, state)
+        candidates, muted_candidates = _apply_event_switches(config, candidates)
+        if candidates:
+            sound_path, used_event = try_play_event(tool, candidates, config, state)
+        else:
+            sound_path, used_event = None, None
         save_state(state)
 
     if used_event:
         outcome = "played"
+        exit_code = 0
+    elif muted_candidates:
+        outcome = "muted"
         exit_code = 0
     elif candidates:
         outcome = "no-sound"
@@ -834,6 +878,7 @@ def _run_hook(tool: str, event_override: str, payload_text: str, source: str = "
         "tool": tool,
         "normalized_event": normalized,
         "candidates": candidates,
+        "muted_candidates": muted_candidates,
         "played_event": used_event,
         "played_file": str(sound_path) if sound_path else "",
         "outcome": outcome,
@@ -994,6 +1039,9 @@ def build_parser() -> argparse.ArgumentParser:
     sub.add_parser("toggle", help="Toggle sound playback")
     sub.add_parser("status", help="Show runtime status")
 
+    permission_parser = sub.add_parser("permission", help="Control PermissionRequest sound playback")
+    permission_parser.add_argument("action", choices=["on", "off", "toggle", "status"], help="Permission sound action")
+
     init_parser = sub.add_parser("init", help="Initialize sound directory tree and README files")
     init_parser.add_argument("--refresh-readmes", action="store_true", help="Rewrite event README.md files")
 
@@ -1041,6 +1089,8 @@ def main(argv: list[str]) -> int:
         return cmd_toggle()
     if args.command == "status":
         return cmd_status()
+    if args.command == "permission":
+        return cmd_permission(action=args.action)
     if args.command == "init":
         return cmd_init(refresh_readmes=bool(args.refresh_readmes))
     if args.command == "events":

@@ -14,6 +14,7 @@ Audio files are user-provided. The repository does not bundle sound assets.
 - Tool-specific event namespaces (`codex` and `claude`) with independent event sets
 - Random playback from per-event folders
 - Global portable switch: `on / off / toggle / status`
+- Dedicated PermissionRequest sound switch: `permission on / off / toggle / status`
 - Linux/macOS playback backend support
 - Event folder bootstrap with bilingual `README.md` per folder
 - Codex hook support for `SessionStart`, `UserPromptSubmit`, `PermissionRequest`, and `PreCompact`
@@ -271,6 +272,10 @@ Control:
 ./c-notify off
 ./c-notify toggle
 ./c-notify status
+./c-notify permission off
+./c-notify permission on
+./c-notify permission toggle
+./c-notify permission status
 ./c-notify events
 ./c-notify events --tool codex
 ./c-notify events --tool claude
@@ -322,6 +327,7 @@ Important keys:
 - `extensions`: allowed audio extensions
 - `prevent_overlap`: skip new playback while prior process is alive
 - `cooldown_seconds` and `cooldown_by_event`: optional throttling
+- `permission_sound_enabled`: default `true`; when `false`, `permission-needed` events are logged but not played
 - `hook_strict_exit`: default `false`; when `true`, hook exits non-zero for unmapped/no-sound outcomes
 
 Hook debug log:
