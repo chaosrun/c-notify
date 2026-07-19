@@ -30,6 +30,7 @@ HOME_DIR = Path.home()
 APP_DIR = Path(os.environ.get("C_NOTIFY_HOME", str(HOME_DIR / ".c-notify"))).expanduser()
 CONFIG_PATH = APP_DIR / "config.json"
 STATE_PATH = APP_DIR / "state.json"
+CONFIG_LOCK_PATH = APP_DIR / ".config.lock"
 LOCK_PATH = APP_DIR / ".state.lock"
 LOG_LOCK_PATH = APP_DIR / ".hook-log.lock"
 LOG_DIR = APP_DIR / "logs"
@@ -196,9 +197,15 @@ def _load_json(path: Path, default: dict[str, Any]) -> dict[str, Any]:
 
 def _save_json(path: Path, data: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("w", encoding="utf-8") as fh:
-        json.dump(data, fh, indent=2)
-        fh.write("\n")
+    tmp_path = path.with_name(f".{path.name}.{os.getpid()}.tmp")
+    try:
+        with tmp_path.open("w", encoding="utf-8") as fh:
+            json.dump(data, fh, indent=2)
+            fh.write("\n")
+        tmp_path.replace(path)
+    finally:
+        if tmp_path.exists():
+            tmp_path.unlink()
 
 
 def _merge(dst: dict[str, Any], src: dict[str, Any]) -> dict[str, Any]:
@@ -210,13 +217,64 @@ def _merge(dst: dict[str, Any], src: dict[str, Any]) -> dict[str, Any]:
     return dst
 
 
-def load_config() -> dict[str, Any]:
-    config = _merge(json.loads(json.dumps(DEFAULT_CONFIG)), _load_json(CONFIG_PATH, {}))
+def _coerce_bool(value: Any, default: bool) -> bool:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        lowered = value.strip().lower()
+        if lowered in {"1", "true", "yes", "on"}:
+            return True
+        if lowered in {"0", "false", "no", "off"}:
+            return False
+    return default
+
+
+def _normalized_config() -> tuple[dict[str, Any], bool]:
+    loaded = _load_json(CONFIG_PATH, {})
+    config = _merge(json.loads(json.dumps(DEFAULT_CONFIG)), loaded)
+    changed = config != loaded
+
     # Remove retired Codex semantic-inference options.
-    config.pop("codex_infer_permission_from_text", None)
-    config.pop("codex_keywords", None)
-    _save_json(CONFIG_PATH, config)
+    for key in ("codex_infer_permission_from_text", "codex_keywords"):
+        if key in config:
+            config.pop(key, None)
+            changed = True
+
+    for key in ("enabled", "prevent_overlap", "permission_sound_enabled", "hook_strict_exit"):
+        default = bool(DEFAULT_CONFIG[key])
+        coerced = _coerce_bool(config.get(key), default)
+        if config.get(key) != coerced:
+            config[key] = coerced
+            changed = True
+
+    return config, changed
+
+
+def load_config() -> dict[str, Any]:
+    config, changed = _normalized_config()
+    if not changed:
+        return config
+
+    with config_lock():
+        config, changed = _normalized_config()
+        if changed:
+            _save_json(CONFIG_PATH, config)
+        return config
+
+
+def update_config(mutator: Any) -> dict[str, Any]:
+    with config_lock():
+        config, _ = _normalized_config()
+        mutator(config)
+        _save_json(CONFIG_PATH, config)
     return config
+
+
+def set_config_value(key: str, value: Any) -> dict[str, Any]:
+    def mutate(config: dict[str, Any]) -> None:
+        config[key] = value
+
+    return update_config(mutate)
 
 
 def load_state() -> dict[str, Any]:
@@ -245,6 +303,12 @@ def _advisory_lock(lock_path: Path) -> Any:
 @contextmanager
 def state_lock() -> Any:
     with _advisory_lock(LOCK_PATH):
+        yield
+
+
+@contextmanager
+def config_lock() -> Any:
+    with _advisory_lock(CONFIG_LOCK_PATH):
         yield
 
 
@@ -732,35 +796,47 @@ def try_play_event(
 
 
 def set_enabled(value: bool) -> int:
-    config = load_config()
-    config["enabled"] = value
-    _save_json(CONFIG_PATH, config)
+    set_config_value("enabled", value)
     print("c-notify: ON" if value else "c-notify: OFF")
     return 0
 
 
 def cmd_toggle() -> int:
-    config = load_config()
-    current = bool(config.get("enabled", True))
-    return set_enabled(not current)
+    next_value = False
+
+    def toggle_enabled(config: dict[str, Any]) -> None:
+        nonlocal next_value
+        next_value = not bool(config.get("enabled", True))
+        config["enabled"] = next_value
+
+    update_config(toggle_enabled)
+    print("c-notify: ON" if next_value else "c-notify: OFF")
+    return 0
 
 
 def set_permission_sound_enabled(value: bool) -> int:
-    config = load_config()
-    config["permission_sound_enabled"] = value
-    _save_json(CONFIG_PATH, config)
+    set_config_value("permission_sound_enabled", value)
     print("c-notify permission sound: ON" if value else "c-notify permission sound: OFF")
     return 0
 
 
 def cmd_permission(action: str) -> int:
-    config = load_config()
-    current = bool(config.get("permission_sound_enabled", True))
     if action == "status":
+        config = load_config()
+        current = bool(config.get("permission_sound_enabled", True))
         print("c-notify permission sound: ON" if current else "c-notify permission sound: OFF")
         return 0
     if action == "toggle":
-        return set_permission_sound_enabled(not current)
+        next_value = False
+
+        def toggle_permission(config: dict[str, Any]) -> None:
+            nonlocal next_value
+            next_value = not bool(config.get("permission_sound_enabled", True))
+            config["permission_sound_enabled"] = next_value
+
+        update_config(toggle_permission)
+        print("c-notify permission sound: ON" if next_value else "c-notify permission sound: OFF")
+        return 0
     return set_permission_sound_enabled(action == "on")
 
 
