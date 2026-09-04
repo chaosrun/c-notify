@@ -66,8 +66,8 @@ DEFAULT_STATE: dict[str, Any] = {
 EVENT_DOCS: dict[str, dict[str, dict[str, str]]] = {
     "codex": {
         "session-start": {
-            "en": "Mapped from the Codex SessionStart hook. Codex notify still does not emit session-start.",
-            "zh": "映射自 Codex SessionStart hook。Codex notify 仍不会发出 session-start。",
+            "en": "Mapped from the Codex SessionStart hook for startup or resume only; clear and compact are excluded. Codex notify does not emit session-start.",
+            "zh": "映射自 Codex SessionStart hook，仅匹配 startup 或 resume，排除 clear 和 compact。Codex notify 不会发出 session-start。",
         },
         "task-acknowledge": {
             "en": "Mapped from the Codex UserPromptSubmit hook.",

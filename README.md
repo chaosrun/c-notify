@@ -101,6 +101,7 @@ hooks = true
   "hooks": {
     "SessionStart": [
       {
+        "matcher": "^(startup|resume)$",
         "hooks": [
           {
             "type": "command",
@@ -157,6 +158,7 @@ Notes:
 - Codex does not use message-semantic inference; `agent-turn-complete` always routes to `task-complete`.
 - Codex hooks are currently used for `SessionStart`, `UserPromptSubmit`, `PermissionRequest`, and `PreCompact`.
 - New or changed Codex hooks may require review in the TUI; open `/hooks` and approve the `c-notify` entries when Codex prompts for review.
+- `SessionStart` uses `matcher: "^(startup|resume)$"` so only new and resumed sessions play `session-start`; `clear` and `compact` do not trigger the opening sound.
 - `UserPromptSubmit` maps to `task-acknowledge`.
 - `PermissionRequest` maps to `permission-needed`.
 - `PreCompact` maps to `context-compact`; `PostCompact` is recognized as the same category but is not installed by default to avoid double playback.

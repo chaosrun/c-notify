@@ -354,7 +354,10 @@ for event_name, status_message in events.items():
     event_hooks = hooks.get(event_name, [])
     if not isinstance(event_hooks, list):
         event_hooks = []
-    event_hooks.append(make_entry(status_message))
+    entry = make_entry(status_message)
+    if event_name == "SessionStart":
+        entry["matcher"] = "^(startup|resume)$"
+    event_hooks.append(entry)
     hooks[event_name] = event_hooks
 
 settings["hooks"] = hooks

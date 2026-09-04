@@ -101,6 +101,7 @@ hooks = true
   "hooks": {
     "SessionStart": [
       {
+        "matcher": "^(startup|resume)$",
         "hooks": [
           {
             "type": "command",
@@ -157,6 +158,7 @@ hooks = true
 - Codex 不做消息语义推断；`agent-turn-complete` 总是路由到 `task-complete`。
 - Codex hooks 当前用于 `SessionStart`、`UserPromptSubmit`、`PermissionRequest` 与 `PreCompact`。
 - Codex 新增或变更 hook 后可能要求在 TUI 里 review；当 Codex 提示时，打开 `/hooks` 并批准 `c-notify` 条目。
+- `SessionStart` 使用 `matcher: "^(startup|resume)$"`，仅在新建或恢复会话时播放 `session-start`；`clear` 和 `compact` 不触发开场音。
 - `UserPromptSubmit` 会映射到 `task-acknowledge`。
 - `PermissionRequest` 会映射到 `permission-needed`。
 - `PreCompact` 会映射到 `context-compact`；`PostCompact` 可识别为同一类别，但默认不安装，避免 compact 前后连响两次。
